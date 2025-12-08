@@ -151,11 +151,77 @@ export const nbaApi = {
 
   async getGameById(gameId: string): Promise<NBAGame | null> {
     try {
-      const response = await fetch(`${NBA_API_URL}/games/${gameId}`);
+      const response = await fetch(`${NBA_API_URL}/games/${gameId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
       console.error('NBA API error:', error);
+      return null;
+    }
+  },
+
+  async getGameRosters(gameId: string): Promise<any> {
+    try {
+      const response = await fetch(`${NBA_API_URL}/games/${gameId}/rosters`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
+      if (!response.ok) {
+        console.error(`NBA API error fetching rosters: ${response.status}`);
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('NBA API error fetching rosters:', error);
+      return null;
+    }
+  },
+
+  async getGameRecords(gameId: string): Promise<any> {
+    try {
+      const response = await fetch(`${NBA_API_URL}/games/${gameId}/records`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
+      if (!response.ok) {
+        console.error(`NBA API error fetching records: ${response.status}`);
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('NBA API error fetching records:', error);
+      return null;
+    }
+  },
+
+  async getPlayByPlay(gameId: string): Promise<any> {
+    try {
+      const response = await fetch(`${NBA_API_URL}/games/${gameId}/playbyplay`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
+      if (!response.ok) {
+        console.error(`NBA API error fetching play-by-play: ${response.status}`);
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('NBA API error fetching play-by-play:', error);
       return null;
     }
   }

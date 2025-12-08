@@ -190,6 +190,191 @@
   color: #94a3b8;
 }
 
+.team-record {
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: #cbd5e1;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.tab-button.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.rosters-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.roster-container {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.roster-container h3 {
+  margin-bottom: 1.5rem;
+  color: #a78bfa;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.roster-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roster-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.roster-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.3s;
+}
+
+.roster-row:hover {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.roster-row span {
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.playbyplay-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  margin-bottom: 2rem;
+}
+
+.playbyplay-section h3 {
+  margin-bottom: 1.5rem;
+  color: #a78bfa;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.playbyplay-list {
+  max-height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.play-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid rgba(102, 126, 234, 0.5);
+  transition: all 0.3s;
+  align-items: center;
+}
+
+.play-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+  border-left-color: #667eea;
+}
+
+.play-period {
+  color: #a78bfa;
+  font-weight: 700;
+  font-size: 0.9rem;
+  min-width: 40px;
+}
+
+.play-clock {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 60px;
+}
+
+.play-description {
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.play-score {
+  color: #10b981;
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-width: 80px;
+  text-align: right;
+}
+
+.no-plays {
+  text-align: center;
+  padding: 3rem;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  font-style: italic;
+}
+
 /* Mobile Game Detail */
 @media (max-width: 768px) {
   .game-header {
@@ -273,6 +458,45 @@
   .back-button {
     width: 100%;
     text-align: center;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tab-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .rosters-section {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .roster-container {
+    padding: 1.5rem;
+  }
+
+  .roster-header,
+  .roster-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .roster-header span,
+  .roster-row span {
+    padding: 0.25rem 0;
+  }
+
+  .play-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .play-score {
+    text-align: left;
   }
 }
 

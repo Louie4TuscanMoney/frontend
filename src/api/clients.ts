@@ -16,11 +16,24 @@ const getNBAUrl = () => {
 };
 const NBA_API_URL = getNBAUrl();
   
-const SHAP_API_URL = import.meta.env.VITE_SHAP_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:5000' : 'https://shap-api.railway.app');
+// Helper function to ensure URLs have https:// protocol
+const ensureHttps = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `https://${url}`;
+};
+
+const SHAP_API_URL = ensureHttps(
+  import.meta.env.VITE_SHAP_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:5000' : 'https://liveshap1-production.up.railway.app')
+);
   
-const BETINPUT_API_URL = import.meta.env.VITE_BETINPUT_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
+const BETINPUT_API_URL = ensureHttps(
+  import.meta.env.VITE_BETINPUT_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app')
+);
 
 // Log API URLs (always log for debugging)
 console.log('🌐 Frontend API Configuration:');

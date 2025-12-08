@@ -30,7 +30,9 @@ export default function Portfolio() {
       try {
         const betInputUrl = import.meta.env.VITE_BETINPUT_API_URL || 
           (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
-        await fetch(`${betInputUrl}/api/bets/resolve-all`, {
+        // Ensure https:// protocol
+        const url = betInputUrl.startsWith('http') ? betInputUrl : `https://${betInputUrl}`;
+        await fetch(`${url}/api/bets/resolve-all`, {
           method: 'POST',
           mode: 'cors'
         });

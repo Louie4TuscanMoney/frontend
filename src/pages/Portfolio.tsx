@@ -333,9 +333,12 @@ export default function Portfolio() {
                       <div class="col-odds">{bet.american_odds > 0 ? '+' : ''}{bet.american_odds || '-110'}</div>
                       <div class="col-amount">${bet.bet_amount?.toFixed(2) || '0.00'}</div>
                       <div class="col-payout">
-                        {(bet.status || bet.result || 'pending').toLowerCase() === 'pending' 
-                          ? 'Pending' 
-                          : `$${bet.payout?.toFixed(2) || '0.00'}`}
+                        {(() => {
+                          const status = (bet.status || bet.result || 'pending').toLowerCase();
+                          if (status === 'pending') return 'Pending';
+                          if (status === 'push') return 'Refund';
+                          return `$${bet.payout?.toFixed(2) || '0.00'}`;
+                        })()}
                       </div>
                       <div class={`col-status ${getStatusClass(bet.status || bet.result)}`}>
                         {getStatusDisplay(bet.status || bet.result)}

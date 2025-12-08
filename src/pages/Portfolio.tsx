@@ -15,22 +15,25 @@ export default function Portfolio() {
   async function loadPortfolioData() {
     try {
       setLoading(true);
-      const [portfolioData, historyData] = await Promise.all([
-        betInputApi.getPortfolio(),
-        betInputApi.getBets()
-      ]);
+      
+      // Get portfolio data (now includes bet_history)
+      const portfolioData = await betInputApi.getPortfolio();
       setPortfolio(portfolioData);
       
-      // Combine bets from both sources (new bets and historical)
-      const newBets = historyData.bets || [];
-      const historicalBets = portfolioData?.bet_history || [];
+      // Get all bets (includes both new and historical, already merged by API)
+      const historyData = await betInputApi.getBets();
+      
+      // Combine bets from portfolio bet_history and /api/bets
+      const portfolioBets = portfolioData?.bet_history || [];
+      const apiBets = historyData.bets || [];
       
       // Merge and deduplicate by ID
-      const allBets = [...newBets];
-      const existingIds = new Set(newBets.map(b => b.id));
-      historicalBets.forEach(bet => {
-        if (!existingIds.has(bet.id)) {
+      const allBets = [...apiBets];
+      const existingIds = new Set(apiBets.map(b => b.id));
+      portfolioBets.forEach(bet => {
+        if (!bet.id || !existingIds.has(bet.id)) {
           allBets.push(bet);
+          if (bet.id) existingIds.add(bet.id);
         }
       });
       
@@ -45,14 +48,19 @@ export default function Portfolio() {
       
       // Auto-resolve pending bets
       try {
-        await fetch(`${import.meta.env.VITE_BETINPUT_API_URL || 'http://localhost:8002'}/api/bets/resolve-all`, {
-          method: 'POST'
+        const betInputUrl = import.meta.env.VITE_BETINPUT_API_URL || 
+          (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
+        await fetch(`${betInputUrl}/api/bets/resolve-all`, {
+          method: 'POST',
+          mode: 'cors'
         });
       } catch (e) {
         // Silent fail - resolution happens in background
+        console.warn('Could not auto-resolve bets:', e);
       }
     } catch (error) {
       console.error('Error loading portfolio:', error);
+      console.error('Portfolio API URL:', import.meta.env.VITE_BETINPUT_API_URL);
     } finally {
       setLoading(false);
     }
@@ -61,7 +69,6 @@ export default function Portfolio() {
   function getFilteredBets() {
     const bets = betHistory();
     if (filter() === 'all') return bets;
-    const status = bet.status || bet.result || 'pending';
     return bets.filter(bet => {
       const betStatus = (bet.status || bet.result || 'pending').toLowerCase();
       if (filter() === 'won') return betStatus === 'won' || betStatus === 'win';

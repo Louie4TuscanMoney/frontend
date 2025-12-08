@@ -201,27 +201,39 @@ export default function BetInput() {
 
           <div class="form-group">
             <label>Spread</label>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <select 
-                value={spreadSign()}
-                onChange={(e) => {
-                  const newSign = e.target.value as '+' | '-';
-                  setSpreadSign(newSign);
-                  // Update spread value with new sign
+            <div class="spread-input-group">
+              <button
+                type="button"
+                class={`spread-sign-button ${spreadSign() === '-' ? 'active' : ''}`}
+                onclick={() => {
+                  setSpreadSign('-');
                   const currentSpread = spread();
                   if (currentSpread !== null && currentSpread !== undefined) {
                     const absValue = Math.abs(currentSpread);
-                    setSpread(newSign === '+' ? absValue : -absValue);
+                    setSpread(-absValue);
                   } else {
-                    // If no value yet, set a default with the selected sign
-                    setSpread(newSign === '+' ? 0.5 : -0.5);
+                    setSpread(-0.5);
                   }
                 }}
-                style="width: 60px;"
               >
-                <option value="-">-</option>
-                <option value="+">+</option>
-              </select>
+                -
+              </button>
+              <button
+                type="button"
+                class={`spread-sign-button ${spreadSign() === '+' ? 'active' : ''}`}
+                onclick={() => {
+                  setSpreadSign('+');
+                  const currentSpread = spread();
+                  if (currentSpread !== null && currentSpread !== undefined) {
+                    const absValue = Math.abs(currentSpread);
+                    setSpread(absValue);
+                  } else {
+                    setSpread(0.5);
+                  }
+                }}
+              >
+                +
+              </button>
               <input 
                 type="number" 
                 step="0.5"
@@ -241,7 +253,7 @@ export default function BetInput() {
                   const sign = spreadSign() === '+' ? 1 : -1;
                   setSpread(sign * val);
                 }}
-                style="flex: 1;"
+                class="spread-number-input"
               />
             </div>
             <small style="color: #94a3b8; margin-top: 0.25rem; display: block;">

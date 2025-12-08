@@ -100,6 +100,47 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.spread-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.spread-sign-button {
+  width: 60px;
+  height: 56px;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.8);
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  border-radius: 10px;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spread-sign-button:hover {
+  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(15, 23, 42, 0.95);
+  color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.spread-sign-button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.spread-number-input {
+  flex: 1;
+}
+
 .calculate-button {
   width: 100%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

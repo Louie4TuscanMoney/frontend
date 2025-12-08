@@ -33,8 +33,8 @@ export default function App() {
       <Route path="/test" component={TestPage} />
       <Route path="/game/:gameId" component={GameDetail} />
       <Route path="/bet" component={BetInput} />
-      <Route path="/bet/:gameId" component={BetInput} />
-      <Route path="/bet/:id" component={BetDetail} />
+      <Route path="/bet/game/:gameId" component={BetInput} />
+      <Route path="/bet/detail/:id" component={BetDetail} />
       <Route path="/portfolio" component={Portfolio} />
     </Router>
   );

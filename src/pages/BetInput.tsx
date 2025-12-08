@@ -196,10 +196,16 @@ export default function BetInput() {
                 })()}
                 onChange={(e) => {
                   const currentSpread = spread();
-                  const absValue = currentSpread ? Math.abs(currentSpread) : 0.5;
+                  const absValue = currentSpread !== null && currentSpread !== undefined 
+                    ? Math.abs(currentSpread) 
+                    : 0.5;
                   const newSign = e.target.value;
                   // Set to positive or negative based on selection
-                  setSpread(newSign === '+' ? absValue : -absValue);
+                  if (newSign === '+') {
+                    setSpread(absValue);
+                  } else {
+                    setSpread(-absValue);
+                  }
                 }}
                 style="width: 60px;"
               >
@@ -218,14 +224,15 @@ export default function BetInput() {
                 onInput={(e) => {
                   const val = parseFloat(e.target.value);
                   if (isNaN(val) || val <= 0) {
+                    // When clearing, also check the select value to maintain sign
+                    const selectEl = e.target.parentElement?.querySelector('select') as HTMLSelectElement;
+                    const currentSign = selectEl?.value === '+' ? 1 : -1;
                     setSpread(null);
                     return;
                   }
-                  // Get current sign from selector or default to negative
-                  const currentSpread = spread();
-                  const currentSign = currentSpread === null || currentSpread === undefined 
-                    ? -1  // Default to negative
-                    : (currentSpread >= 0 ? 1 : -1);
+                  // Get current sign from selector
+                  const selectEl = e.target.parentElement?.querySelector('select') as HTMLSelectElement;
+                  const currentSign = selectEl?.value === '+' ? 1 : -1;
                   setSpread(currentSign * val);
                 }}
                 style="flex: 1;"

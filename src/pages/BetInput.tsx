@@ -192,7 +192,19 @@ export default function BetInput() {
             <label>Spread</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <select 
-                value={spreadSign()}
+                value={(() => {
+                  // Sync spreadSign with current spread value
+                  const s = spread();
+                  if (s !== null && s !== undefined) {
+                    const currentSign = s >= 0 ? '+' : '-';
+                    // Only update if different to avoid infinite loops
+                    if (spreadSign() !== currentSign) {
+                      setSpreadSign(currentSign);
+                    }
+                    return currentSign;
+                  }
+                  return spreadSign();
+                })()}
                 onChange={(e) => {
                   const newSign = e.target.value as '+' | '-';
                   setSpreadSign(newSign);

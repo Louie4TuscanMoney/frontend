@@ -153,8 +153,9 @@
   color: #cbd5e1;
   font-size: 0.9rem;
   border: 1px solid rgba(102, 126, 234, 0.2);
-  font-family: 'Courier New', monospace;
+  font-family: 'Inter', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Courier New', monospace;
   word-break: break-word;
+  font-weight: 500;
 }
 
 .game-actions {

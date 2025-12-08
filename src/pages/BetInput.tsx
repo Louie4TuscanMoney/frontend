@@ -98,7 +98,7 @@ export default function BetInput() {
         away_team_id: game.away_team_id || game.awayTeam?.teamId,
         team_selected: teamSelected(),
         bet_type: 'Point Spread', // Always Point Spread
-        spread: spread(),
+        spread: spread() ?? undefined,
         american_odds: parseFloat(americanOdds()),
         risk_percent: riskPercent()
       };

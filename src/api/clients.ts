@@ -20,7 +20,7 @@ const SHAP_API_URL = import.meta.env.VITE_SHAP_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'https://shap-api.railway.app');
   
 const BETINPUT_API_URL = import.meta.env.VITE_BETINPUT_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-api.railway.app');
+  (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
 
 // Log API URLs (always log for debugging)
 console.log('🌐 Frontend API Configuration:');
@@ -254,31 +254,52 @@ export const betInputApi = {
   async getBets(status?: string) {
     try {
       const url = status ? `${BETINPUT_API_URL}/api/bets?status=${status}` : `${BETINPUT_API_URL}/api/bets`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+      console.log('📊 Fetching bets from:', url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Bets API error:', response.status, response.statusText, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📊 Bets API response:', data);
+      console.log('📊 Bets count:', data.bets?.length || 0);
+      return data;
     } catch (error) {
-      console.error('BetInput API error (getBets):', error);
-      return { bets: [], error: true };
+      console.error('❌ BetInput API error (getBets):', error);
+      console.error('❌ API URL:', BETINPUT_API_URL);
+      return { bets: [], count: 0, error: true };
     }
   },
 
   async getPortfolio() {
     try {
-      const response = await fetch(`${BETINPUT_API_URL}/api/portfolio`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      console.log('📊 Fetching portfolio from:', `${BETINPUT_API_URL}/api/portfolio`);
+      const response = await fetch(`${BETINPUT_API_URL}/api/portfolio`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors'
+      });
       
-      // Also get bet history to include in portfolio
-      try {
-        const historyResponse = await fetch(`${BETINPUT_API_URL}/api/bet-history`);
-        if (historyResponse.ok) {
-          const historyData = await historyResponse.json();
-          data.bet_history = historyData.history || [];
-        }
-      } catch (e) {
-        // Silent fail
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Portfolio API error:', response.status, response.statusText, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+      
+      const data = await response.json();
+      console.log('📊 Portfolio API response:', data);
+      console.log('📊 Bet history count:', data.bet_history?.length || 0);
       
       // Ensure statistics are accessible at top level
       if (data.statistics) {
@@ -286,13 +307,20 @@ export const betInputApi = {
         data.sharpe_ratio = data.statistics.sharpe_ratio;
       }
       
+      // Ensure bet_history exists
+      if (!data.bet_history) {
+        data.bet_history = [];
+      }
+      
       return data;
     } catch (error) {
-      console.error('BetInput API error (getPortfolio):', error);
+      console.error('❌ BetInput API error (getPortfolio):', error);
+      console.error('❌ API URL:', BETINPUT_API_URL);
       return { 
         balance: 150.0, 
         risk_percent: 7.33, 
         error: true,
+        bet_history: [],
         statistics: {
           pnl: { day: { total_profit: 0, bets: 0, total_risk: 0 }, week: { total_profit: 0, bets: 0, total_risk: 0 }, overall: { total_profit: 0, bets: 0, total_risk: 0 } },
           sharpe_ratio: { day: 0, week: 0, overall: 0 }

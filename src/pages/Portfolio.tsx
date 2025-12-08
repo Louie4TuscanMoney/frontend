@@ -16,16 +16,24 @@ export default function Portfolio() {
     try {
       setLoading(true);
       
+      console.log('📊 Loading portfolio data...');
+      
       // Get portfolio data (now includes bet_history)
       const portfolioData = await betInputApi.getPortfolio();
+      console.log('📊 Portfolio data received:', portfolioData);
+      console.log('📊 Bet history from portfolio:', portfolioData?.bet_history?.length || 0, 'bets');
       setPortfolio(portfolioData);
       
       // Get all bets (includes both new and historical, already merged by API)
       const historyData = await betInputApi.getBets();
+      console.log('📊 Bets data received:', historyData);
+      console.log('📊 Bets from /api/bets:', historyData.bets?.length || 0, 'bets');
       
       // Combine bets from portfolio bet_history and /api/bets
       const portfolioBets = portfolioData?.bet_history || [];
       const apiBets = historyData.bets || [];
+      
+      console.log('📊 Merging bets: portfolio=', portfolioBets.length, 'api=', apiBets.length);
       
       // Merge and deduplicate by ID (prefer API bets as they're more up-to-date)
       const allBets = [...apiBets];
@@ -37,6 +45,8 @@ export default function Portfolio() {
         }
       });
       
+      console.log('📊 Total merged bets:', allBets.length);
+      
       // Sort by date (newest first)
       allBets.sort((a, b) => {
         const dateA = new Date(a.created_at || a.date || 0).getTime();
@@ -45,6 +55,7 @@ export default function Portfolio() {
       });
       
       setBetHistory(allBets);
+      console.log('📊 Bet history set:', allBets.length, 'bets');
       
       // Auto-resolve pending bets
       try {
@@ -59,8 +70,9 @@ export default function Portfolio() {
         console.warn('Could not auto-resolve bets:', e);
       }
     } catch (error) {
-      console.error('Error loading portfolio:', error);
-      console.error('Portfolio API URL:', import.meta.env.VITE_BETINPUT_API_URL);
+      console.error('❌ Error loading portfolio:', error);
+      console.error('❌ Portfolio API URL:', import.meta.env.VITE_BETINPUT_API_URL);
+      console.error('❌ Error details:', error);
     } finally {
       setLoading(false);
     }

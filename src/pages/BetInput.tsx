@@ -13,6 +13,7 @@ export default function BetInput() {
   const [teamSelected, setTeamSelected] = createSignal('');
   const [betType] = createSignal('Point Spread'); // Always Point Spread
   const [spread, setSpread] = createSignal<number | null>(null);
+  const [spreadSign, setSpreadSign] = createSignal<'+' | '-'>('-');
   const [americanOdds, setAmericanOdds] = createSignal('');
   const [riskPercent, setRiskPercent] = createSignal(7.33);
   
@@ -171,7 +172,9 @@ export default function BetInput() {
                 const match = value.match(/(.+?)\s*([+-]?\d+\.?\d*)$/);
                 if (match) {
                   setTeamSelected(match[1].trim());
-                  setSpread(parseFloat(match[2]));
+                  const spreadVal = parseFloat(match[2]);
+                  setSpread(spreadVal);
+                  setSpreadSign(spreadVal >= 0 ? '+' : '-');
                 }
               }}
             >
@@ -189,22 +192,18 @@ export default function BetInput() {
             <label>Spread</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <select 
-                value={(() => {
-                  const s = spread();
-                  if (s === null || s === undefined) return '-';
-                  return s >= 0 ? '+' : '-';
-                })()}
+                value={spreadSign()}
                 onChange={(e) => {
+                  const newSign = e.target.value as '+' | '-';
+                  setSpreadSign(newSign);
+                  // Update spread value with new sign
                   const currentSpread = spread();
-                  const absValue = currentSpread !== null && currentSpread !== undefined 
-                    ? Math.abs(currentSpread) 
-                    : 0.5;
-                  const newSign = e.target.value;
-                  // Set to positive or negative based on selection
-                  if (newSign === '+') {
-                    setSpread(absValue);
+                  if (currentSpread !== null && currentSpread !== undefined) {
+                    const absValue = Math.abs(currentSpread);
+                    setSpread(newSign === '+' ? absValue : -absValue);
                   } else {
-                    setSpread(-absValue);
+                    // If no value yet, set a default with the selected sign
+                    setSpread(newSign === '+' ? 0.5 : -0.5);
                   }
                 }}
                 style="width: 60px;"
@@ -224,16 +223,12 @@ export default function BetInput() {
                 onInput={(e) => {
                   const val = parseFloat(e.target.value);
                   if (isNaN(val) || val <= 0) {
-                    // When clearing, also check the select value to maintain sign
-                    const selectEl = e.target.parentElement?.querySelector('select') as HTMLSelectElement;
-                    const currentSign = selectEl?.value === '+' ? 1 : -1;
                     setSpread(null);
                     return;
                   }
-                  // Get current sign from selector
-                  const selectEl = e.target.parentElement?.querySelector('select') as HTMLSelectElement;
-                  const currentSign = selectEl?.value === '+' ? 1 : -1;
-                  setSpread(currentSign * val);
+                  // Use the current sign from spreadSign signal
+                  const sign = spreadSign() === '+' ? 1 : -1;
+                  setSpread(sign * val);
                 }}
                 style="flex: 1;"
               />

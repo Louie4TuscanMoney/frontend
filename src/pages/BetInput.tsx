@@ -106,10 +106,10 @@ export default function BetInput() {
       setMessage('Bet placed successfully!');
       setBalance(result.balance || balance());
       
-      // Reset form
+      // Reset form and navigate to Portfolio to show new bet
       setTimeout(() => {
-        navigate('/');
-      }, 2000);
+        navigate('/portfolio');
+      }, 1500);
     } catch (error: any) {
       console.error('Error placing bet:', error);
       setMessage(error.message || 'Error placing bet');

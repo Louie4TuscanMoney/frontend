@@ -12,6 +12,15 @@ export default function Portfolio() {
     await loadPortfolioData();
   });
 
+  // Refresh when page becomes visible (e.g., after navigating back from BetInput)
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', async () => {
+      if (!document.hidden) {
+        await loadPortfolioData();
+      }
+    });
+  }
+
   async function loadPortfolioData() {
     try {
       setLoading(true);

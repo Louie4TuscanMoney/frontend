@@ -422,8 +422,7 @@ export default function Portfolio() {
                   {(bet) => (
                     <div 
                       class="table-row clickable-row"
-                      onclick={() => navigate(`/bet/${bet.id}`)}
-                      style="cursor: pointer;"
+                      onclick={() => navigate(`/bet/detail/${bet.id}`)}
                     >
                       <div class="col-date">{formatDate(bet.created_at || bet.date)}</div>
                       <div class="col-game">

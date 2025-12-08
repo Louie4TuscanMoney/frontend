@@ -282,27 +282,55 @@ export const betInputApi = {
 
   async getPortfolio() {
     try {
-      console.log('📊 Fetching portfolio from:', `${BETINPUT_API_URL}/api/portfolio`);
-      const response = await fetch(`${BETINPUT_API_URL}/api/portfolio`, {
+      const url = `${BETINPUT_API_URL}/api/portfolio`;
+      console.log('📊 Fetching portfolio from:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
-        mode: 'cors'
+        mode: 'cors',
+        credentials: 'omit'
       });
+      
+      console.log('📊 Portfolio response status:', response.status, response.statusText);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Portfolio API error:', response.status, response.statusText, errorText);
+        console.error('❌ Portfolio API error:', response.status, response.statusText);
+        console.error('❌ Error response:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
       console.log('📊 Portfolio API response:', data);
+      console.log('📊 Balance:', data.balance);
       console.log('📊 Bet history count:', data.bet_history?.length || 0);
+      console.log('📊 Statistics:', data.statistics);
       
       // Ensure statistics are accessible at top level
       if (data.statistics) {
+        data.pnl = data.statistics.pnl;
+        data.sharpe_ratio = data.statistics.sharpe_ratio;
+      } else {
+        // Provide default statistics if missing
+        data.statistics = {
+          balance: data.balance || 150.0,
+          total_bets: data.bet_history?.length || 0,
+          wins: 0,
+          losses: 0,
+          pending: 0,
+          total_profit: 0,
+          win_rate: 0,
+          pnl: { 
+            day: { total_profit: 0, bets: 0, total_risk: 0 }, 
+            week: { total_profit: 0, bets: 0, total_risk: 0 }, 
+            overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+          },
+          sharpe_ratio: { day: 0, week: 0, overall: 0 }
+        };
         data.pnl = data.statistics.pnl;
         data.sharpe_ratio = data.statistics.sharpe_ratio;
       }
@@ -312,17 +340,40 @@ export const betInputApi = {
         data.bet_history = [];
       }
       
+      // Ensure balance and risk_percent exist
+      if (!data.balance) {
+        data.balance = 150.0;
+      }
+      if (!data.risk_percent) {
+        data.risk_percent = 7.33;
+      }
+      
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ BetInput API error (getPortfolio):', error);
       console.error('❌ API URL:', BETINPUT_API_URL);
+      console.error('❌ Error message:', error?.message);
+      console.error('❌ Error stack:', error?.stack);
+      
+      // Return fallback data
       return { 
         balance: 150.0, 
         risk_percent: 7.33, 
         error: true,
         bet_history: [],
         statistics: {
-          pnl: { day: { total_profit: 0, bets: 0, total_risk: 0 }, week: { total_profit: 0, bets: 0, total_risk: 0 }, overall: { total_profit: 0, bets: 0, total_risk: 0 } },
+          balance: 150.0,
+          total_bets: 0,
+          wins: 0,
+          losses: 0,
+          pending: 0,
+          total_profit: 0,
+          win_rate: 0,
+          pnl: { 
+            day: { total_profit: 0, bets: 0, total_risk: 0 }, 
+            week: { total_profit: 0, bets: 0, total_risk: 0 }, 
+            overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+          },
           sharpe_ratio: { day: 0, week: 0, overall: 0 }
         }
       };

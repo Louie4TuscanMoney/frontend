@@ -96,29 +96,47 @@ export default function Portfolio() {
   }
 
   const portfolioData = portfolio();
-  const stats = portfolioData?.statistics || portfolioData || {};
+  
+  // Extract statistics with fallbacks
+  const stats = portfolioData?.statistics || {};
   
   // Ensure PNL and Sharpe data exists
-  if (!stats.pnl) {
-    stats.pnl = { 
-      day: { total_profit: 0, bets: 0, total_risk: 0 }, 
-      week: { total_profit: 0, bets: 0, total_risk: 0 }, 
-      overall: { total_profit: 0, bets: 0, total_risk: 0 } 
-    };
-  }
-  if (!stats.sharpe_ratio) {
-    stats.sharpe_ratio = { day: 0, week: 0, overall: 0 };
-  }
+  const pnl = stats.pnl || portfolioData?.pnl || { 
+    day: { total_profit: 0, bets: 0, total_risk: 0 }, 
+    week: { total_profit: 0, bets: 0, total_risk: 0 }, 
+    overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+  };
   
-  // Calculate stats from bet history if not provided
+  const sharpe_ratio = stats.sharpe_ratio || portfolioData?.sharpe_ratio || { day: 0, week: 0, overall: 0 };
+  
+  // Calculate stats from bet history
   const allBets = betHistory();
   const calculatedStats = {
-    total_bets: stats.total_bets || allBets.length,
-    wins: stats.wins || allBets.filter(b => (b.status || b.result || '').toLowerCase() === 'won' || (b.status || b.result || '').toLowerCase() === 'win').length,
-    losses: stats.losses || allBets.filter(b => (b.status || b.result || '').toLowerCase() === 'lost' || (b.status || b.result || '').toLowerCase() === 'loss').length,
-    pending: stats.pending || allBets.filter(b => (b.status || b.result || 'pending').toLowerCase() === 'pending').length,
-    total_profit: stats.total_profit || allBets.reduce((sum, b) => sum + (b.profit || 0), 0),
-    win_rate: stats.win_rate || (allBets.filter(b => (b.status || b.result || '').toLowerCase() === 'won' || (b.status || b.result || '').toLowerCase() === 'win').length / Math.max(allBets.filter(b => (b.status || b.result || 'pending').toLowerCase() !== 'pending').length, 1))
+    total_bets: stats.total_bets ?? allBets.length,
+    wins: stats.wins ?? allBets.filter(b => {
+      const status = (b.status || b.result || '').toLowerCase();
+      return status === 'won' || status === 'win';
+    }).length,
+    losses: stats.losses ?? allBets.filter(b => {
+      const status = (b.status || b.result || '').toLowerCase();
+      return status === 'lost' || status === 'loss';
+    }).length,
+    pending: stats.pending ?? allBets.filter(b => {
+      const status = (b.status || b.result || 'pending').toLowerCase();
+      return status === 'pending';
+    }).length,
+    total_profit: stats.total_profit ?? allBets.reduce((sum, b) => sum + (b.profit || 0), 0),
+    win_rate: stats.win_rate ?? (() => {
+      const resolved = allBets.filter(b => {
+        const status = (b.status || b.result || 'pending').toLowerCase();
+        return status !== 'pending';
+      });
+      const won = resolved.filter(b => {
+        const status = (b.status || b.result || '').toLowerCase();
+        return status === 'won' || status === 'win';
+      });
+      return resolved.length > 0 ? won.length / resolved.length : 0;
+    })()
   };
 
   return (
@@ -139,14 +157,14 @@ export default function Portfolio() {
             <div class="summary-card balance">
               <div class="card-label">Current Balance</div>
               <div class="card-value">
-                ${(portfolioData?.balance || 150).toFixed(2)}
+                ${(portfolioData?.balance ?? 150).toFixed(2)}
               </div>
             </div>
             
             <div class="summary-card risk">
               <div class="card-label">Risk % (Kelly)</div>
               <div class="card-value">
-                {(portfolioData?.risk_percent || 7.33).toFixed(2)}%
+                {(portfolioData?.risk_percent ?? 7.33).toFixed(2)}%
               </div>
             </div>
 
@@ -171,29 +189,29 @@ export default function Portfolio() {
             <div class="pnl-grid">
               <div class="pnl-card">
                 <div class="pnl-label">Today</div>
-                <div class={`pnl-value ${(stats.pnl?.day?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(stats.pnl?.day?.total_profit || 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl?.day?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl?.day?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {stats.pnl?.day?.bets || 0} bets • ${(stats.pnl?.day?.total_risk || 0).toFixed(2)} risk
+                  {pnl?.day?.bets ?? 0} bets • ${(pnl?.day?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
               <div class="pnl-card">
                 <div class="pnl-label">This Week</div>
-                <div class={`pnl-value ${(stats.pnl?.week?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(stats.pnl?.week?.total_profit || 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl?.week?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl?.week?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {stats.pnl?.week?.bets || 0} bets • ${(stats.pnl?.week?.total_risk || 0).toFixed(2)} risk
+                  {pnl?.week?.bets ?? 0} bets • ${(pnl?.week?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
               <div class="pnl-card">
                 <div class="pnl-label">Overall</div>
-                <div class={`pnl-value ${(stats.pnl?.overall?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(stats.pnl?.overall?.total_profit || 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl?.overall?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl?.overall?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {stats.pnl?.overall?.bets || 0} bets • ${(stats.pnl?.overall?.total_risk || 0).toFixed(2)} risk
+                  {pnl?.overall?.bets ?? 0} bets • ${(pnl?.overall?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
             </div>
@@ -206,19 +224,19 @@ export default function Portfolio() {
               <div class="sharpe-card">
                 <div class="sharpe-label">Today</div>
                 <div class="sharpe-value">
-                  {(stats.sharpe_ratio?.day || 0).toFixed(4)}
+                  {(sharpe_ratio?.day ?? 0).toFixed(4)}
                 </div>
               </div>
               <div class="sharpe-card">
                 <div class="sharpe-label">This Week</div>
                 <div class="sharpe-value">
-                  {(stats.sharpe_ratio?.week || 0).toFixed(4)}
+                  {(sharpe_ratio?.week ?? 0).toFixed(4)}
                 </div>
               </div>
               <div class="sharpe-card">
                 <div class="sharpe-label">Overall</div>
                 <div class="sharpe-value">
-                  {(stats.sharpe_ratio?.overall || 0).toFixed(4)}
+                  {(sharpe_ratio?.overall ?? 0).toFixed(4)}
                 </div>
               </div>
             </div>

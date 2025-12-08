@@ -108,6 +108,18 @@ export default function Portfolio() {
   const portfolioData = portfolio();
   const stats = portfolioData?.statistics || portfolioData || {};
   
+  // Ensure PNL and Sharpe data exists
+  if (!stats.pnl) {
+    stats.pnl = { 
+      day: { total_profit: 0, bets: 0, total_risk: 0 }, 
+      week: { total_profit: 0, bets: 0, total_risk: 0 }, 
+      overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+    };
+  }
+  if (!stats.sharpe_ratio) {
+    stats.sharpe_ratio = { day: 0, week: 0, overall: 0 };
+  }
+  
   // Calculate stats from bet history if not provided
   const allBets = betHistory();
   const calculatedStats = {
@@ -159,6 +171,65 @@ export default function Portfolio() {
               <div class="card-label">Win Rate</div>
               <div class="card-value">
                 {(calculatedStats.win_rate * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+
+          {/* PNL by Period */}
+          <div class="pnl-section">
+            <h2>PNL (Profit & Loss)</h2>
+            <div class="pnl-grid">
+              <div class="pnl-card">
+                <div class="pnl-label">Today</div>
+                <div class={`pnl-value ${(stats.pnl?.day?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(stats.pnl?.day?.total_profit || 0).toFixed(2)}
+                </div>
+                <div class="pnl-details">
+                  {stats.pnl?.day?.bets || 0} bets • ${(stats.pnl?.day?.total_risk || 0).toFixed(2)} risk
+                </div>
+              </div>
+              <div class="pnl-card">
+                <div class="pnl-label">This Week</div>
+                <div class={`pnl-value ${(stats.pnl?.week?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(stats.pnl?.week?.total_profit || 0).toFixed(2)}
+                </div>
+                <div class="pnl-details">
+                  {stats.pnl?.week?.bets || 0} bets • ${(stats.pnl?.week?.total_risk || 0).toFixed(2)} risk
+                </div>
+              </div>
+              <div class="pnl-card">
+                <div class="pnl-label">Overall</div>
+                <div class={`pnl-value ${(stats.pnl?.overall?.total_profit || 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(stats.pnl?.overall?.total_profit || 0).toFixed(2)}
+                </div>
+                <div class="pnl-details">
+                  {stats.pnl?.overall?.bets || 0} bets • ${(stats.pnl?.overall?.total_risk || 0).toFixed(2)} risk
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sharpe Ratio */}
+          <div class="sharpe-section">
+            <h2>Sharpe Ratio</h2>
+            <div class="sharpe-grid">
+              <div class="sharpe-card">
+                <div class="sharpe-label">Today</div>
+                <div class="sharpe-value">
+                  {(stats.sharpe_ratio?.day || 0).toFixed(4)}
+                </div>
+              </div>
+              <div class="sharpe-card">
+                <div class="sharpe-label">This Week</div>
+                <div class="sharpe-value">
+                  {(stats.sharpe_ratio?.week || 0).toFixed(4)}
+                </div>
+              </div>
+              <div class="sharpe-card">
+                <div class="sharpe-label">Overall</div>
+                <div class="sharpe-value">
+                  {(stats.sharpe_ratio?.overall || 0).toFixed(4)}
+                </div>
               </div>
             </div>
           </div>

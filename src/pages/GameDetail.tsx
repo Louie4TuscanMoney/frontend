@@ -94,7 +94,20 @@ export default function GameDetail() {
       {shapData && (
         <div class="shap-section">
           <h3>SHAP Predictions</h3>
-          <pre class="shap-data">{JSON.stringify(shapData.prediction, null, 2)}</pre>
+          <div class="shap-data-container">
+            {shapData.prediction && typeof shapData.prediction === 'object' ? (
+              <div class="shap-data-grid">
+                {Object.entries(shapData.prediction).map(([key, value]) => (
+                  <div class="shap-data-item">
+                    <span class="shap-key">{key}:</span>
+                    <span class="shap-value">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <pre class="shap-data">{JSON.stringify(shapData.prediction, null, 2)}</pre>
+            )}
+          </div>
         </div>
       )}
 

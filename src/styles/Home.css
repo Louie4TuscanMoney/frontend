@@ -21,6 +21,25 @@
   letter-spacing: -1px;
 }
 
+/* Mobile Header */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .header h1 {
+    font-size: 2rem;
+  }
+  
+  .bet-button {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
 .bet-button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -77,6 +96,37 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 2rem;
+}
+
+/* Mobile Games Grid */
+@media (max-width: 768px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .game-tile {
+    padding: 1.5rem;
+  }
+  
+  .team-name {
+    font-size: 1.1rem;
+  }
+  
+  .score {
+    font-size: 1.75rem;
+  }
+  
+  .game-status {
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .shap-badge {
+    font-size: 0.8rem;
+    padding: 0.6rem 0.8rem;
+  }
 }
 
 .game-tile {

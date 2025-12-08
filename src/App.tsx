@@ -13,7 +13,7 @@ export default function App() {
         <nav class="navbar">
           <div class="nav-container">
             <A href="/" class="nav-logo">
-              🏀 NBA Betting Dashboard
+              🏀 Tuscan Money NBA System
             </A>
             <div class="nav-links">
               <A href="/" class="nav-link" activeClass="active">Games</A>

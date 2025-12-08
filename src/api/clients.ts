@@ -267,10 +267,37 @@ export const betInputApi = {
     try {
       const response = await fetch(`${BETINPUT_API_URL}/api/portfolio`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+      const data = await response.json();
+      
+      // Also get bet history to include in portfolio
+      try {
+        const historyResponse = await fetch(`${BETINPUT_API_URL}/api/bet-history`);
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          data.bet_history = historyData.history || [];
+        }
+      } catch (e) {
+        // Silent fail
+      }
+      
+      // Ensure statistics are accessible at top level
+      if (data.statistics) {
+        data.pnl = data.statistics.pnl;
+        data.sharpe_ratio = data.statistics.sharpe_ratio;
+      }
+      
+      return data;
     } catch (error) {
       console.error('BetInput API error (getPortfolio):', error);
-      return { balance: 150.0, risk_percent: 7.33, error: true };
+      return { 
+        balance: 150.0, 
+        risk_percent: 7.33, 
+        error: true,
+        statistics: {
+          pnl: { day: { total_profit: 0, bets: 0, total_risk: 0 }, week: { total_profit: 0, bets: 0, total_risk: 0 }, overall: { total_profit: 0, bets: 0, total_risk: 0 } },
+          sharpe_ratio: { day: 0, week: 0, overall: 0 }
+        }
+      };
     }
   }
 };

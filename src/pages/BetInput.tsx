@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show, For } from 'solid-js';
+import { createSignal, onMount, Show, For, createEffect } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { betInputApi, nbaApi, NBAGame } from '../api/clients';
 import '../styles/BetInput.css';
@@ -21,6 +21,17 @@ export default function BetInput() {
   const [calculating, setCalculating] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
   const [message, setMessage] = createSignal('');
+
+  // Sync spreadSign with spread value
+  createEffect(() => {
+    const s = spread();
+    if (s !== null && s !== undefined) {
+      const currentSign = s >= 0 ? '+' : '-';
+      if (spreadSign() !== currentSign) {
+        setSpreadSign(currentSign);
+      }
+    }
+  });
 
   onMount(async () => {
     await loadData();
@@ -192,19 +203,7 @@ export default function BetInput() {
             <label>Spread</label>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <select 
-                value={(() => {
-                  // Sync spreadSign with current spread value
-                  const s = spread();
-                  if (s !== null && s !== undefined) {
-                    const currentSign = s >= 0 ? '+' : '-';
-                    // Only update if different to avoid infinite loops
-                    if (spreadSign() !== currentSign) {
-                      setSpreadSign(currentSign);
-                    }
-                    return currentSign;
-                  }
-                  return spreadSign();
-                })()}
+                value={spreadSign()}
                 onChange={(e) => {
                   const newSign = e.target.value as '+' | '-';
                   setSpreadSign(newSign);

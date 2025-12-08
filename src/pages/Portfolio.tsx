@@ -27,7 +27,7 @@ export default function Portfolio() {
       const portfolioBets = portfolioData?.bet_history || [];
       const apiBets = historyData.bets || [];
       
-      // Merge and deduplicate by ID
+      // Merge and deduplicate by ID (prefer API bets as they're more up-to-date)
       const allBets = [...apiBets];
       const existingIds = new Set(apiBets.map(b => b.id));
       portfolioBets.forEach(bet => {
@@ -74,6 +74,7 @@ export default function Portfolio() {
       if (filter() === 'won') return betStatus === 'won' || betStatus === 'win';
       if (filter() === 'lost') return betStatus === 'lost' || betStatus === 'loss';
       if (filter() === 'pending') return betStatus === 'pending';
+      if (filter() === 'push') return betStatus === 'push';
       return true;
     });
   }
@@ -100,6 +101,8 @@ export default function Portfolio() {
       return 'status-won';
     } else if (statusLower === 'lost' || statusLower === 'loss') {
       return 'status-lost';
+    } else if (statusLower === 'push') {
+      return 'status-push';
     } else {
       return 'status-pending';
     }
@@ -109,6 +112,7 @@ export default function Portfolio() {
     const statusLower = status?.toLowerCase() || '';
     if (statusLower === 'won' || statusLower === 'win') return 'Won';
     if (statusLower === 'lost' || statusLower === 'loss') return 'Lost';
+    if (statusLower === 'push') return 'Push';
     return 'Pending';
   }
 

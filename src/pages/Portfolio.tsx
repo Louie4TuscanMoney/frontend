@@ -1,12 +1,17 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { betInputApi } from '../api/clients';
 import '../styles/Portfolio.css';
 
 export default function Portfolio() {
+  const navigate = useNavigate();
   const [portfolio, setPortfolio] = createSignal<any>(null);
   const [betHistory, setBetHistory] = createSignal<any[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [filter, setFilter] = createSignal<string>('all'); // all, pending, won, lost
+  const [teamFilter, setTeamFilter] = createSignal<string>('all');
+  const [riskFilter, setRiskFilter] = createSignal<string>('all'); // all, low (<$10), medium ($10-$20), high (>$20)
+  const [spreadFilter, setSpreadFilter] = createSignal<string>('all'); // all, low (<5), medium (5-10), high (>10)
 
   onMount(async () => {
     await loadPortfolioData();
@@ -57,16 +62,60 @@ export default function Portfolio() {
   }
 
   function getFilteredBets() {
+    let bets = betHistory();
+    
+    // Status filter
+    if (filter() !== 'all') {
+      bets = bets.filter(bet => {
+        const betStatus = (bet.status || bet.result || 'pending').toLowerCase();
+        if (filter() === 'won') return betStatus === 'won' || betStatus === 'win';
+        if (filter() === 'lost') return betStatus === 'lost' || betStatus === 'loss';
+        if (filter() === 'pending') return betStatus === 'pending';
+        if (filter() === 'push') return betStatus === 'push';
+        return true;
+      });
+    }
+    
+    // Team filter
+    if (teamFilter() !== 'all') {
+      bets = bets.filter(bet => {
+        const team = (bet.team_selected || '').toUpperCase();
+        return team.includes(teamFilter().toUpperCase());
+      });
+    }
+    
+    // Risk size filter
+    if (riskFilter() !== 'all') {
+      bets = bets.filter(bet => {
+        const amount = bet.bet_amount || 0;
+        if (riskFilter() === 'low') return amount < 10;
+        if (riskFilter() === 'medium') return amount >= 10 && amount <= 20;
+        if (riskFilter() === 'high') return amount > 20;
+        return true;
+      });
+    }
+    
+    // Spread filter
+    if (spreadFilter() !== 'all') {
+      bets = bets.filter(bet => {
+        const spread = Math.abs(bet.spread || 0);
+        if (spreadFilter() === 'low') return spread < 5;
+        if (spreadFilter() === 'medium') return spread >= 5 && spread <= 10;
+        if (spreadFilter() === 'high') return spread > 10;
+        return true;
+      });
+    }
+    
+    return bets;
+  }
+  
+  function getUniqueTeams() {
     const bets = betHistory();
-    if (filter() === 'all') return bets;
-    return bets.filter(bet => {
-      const betStatus = (bet.status || bet.result || 'pending').toLowerCase();
-      if (filter() === 'won') return betStatus === 'won' || betStatus === 'win';
-      if (filter() === 'lost') return betStatus === 'lost' || betStatus === 'loss';
-      if (filter() === 'pending') return betStatus === 'pending';
-      if (filter() === 'push') return betStatus === 'push';
-      return true;
+    const teams = new Set<string>();
+    bets.forEach(bet => {
+      if (bet.team_selected) teams.add(bet.team_selected);
     });
+    return Array.from(teams).sort();
   }
 
   function formatDate(dateString: string) {
@@ -279,31 +328,78 @@ export default function Portfolio() {
           <div class="bet-history-section">
             <div class="history-header">
               <h2>Bet History</h2>
-              <div class="filter-buttons">
-                <button 
-                  class={filter() === 'all' ? 'active' : ''}
-                  onclick={() => setFilter('all')}
-                >
-                  All
-                </button>
-                <button 
-                  class={filter() === 'pending' ? 'active' : ''}
-                  onclick={() => setFilter('pending')}
-                >
-                  Pending
-                </button>
-                <button 
-                  class={filter() === 'won' ? 'active' : ''}
-                  onclick={() => setFilter('won')}
-                >
-                  Won
-                </button>
-                <button 
-                  class={filter() === 'lost' ? 'active' : ''}
-                  onclick={() => setFilter('lost')}
-                >
-                  Lost
-                </button>
+              <div class="filters-container">
+                <div class="filter-group">
+                  <label class="filter-label">Status:</label>
+                  <div class="filter-buttons">
+                    <button 
+                      class={filter() === 'all' ? 'active' : ''}
+                      onclick={() => setFilter('all')}
+                    >
+                      All
+                    </button>
+                    <button 
+                      class={filter() === 'pending' ? 'active' : ''}
+                      onclick={() => setFilter('pending')}
+                    >
+                      Pending
+                    </button>
+                    <button 
+                      class={filter() === 'won' ? 'active' : ''}
+                      onclick={() => setFilter('won')}
+                    >
+                      Won
+                    </button>
+                    <button 
+                      class={filter() === 'lost' ? 'active' : ''}
+                      onclick={() => setFilter('lost')}
+                    >
+                      Lost
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="filter-group">
+                  <label class="filter-label">Team:</label>
+                  <select 
+                    class="filter-select"
+                    value={teamFilter()}
+                    onchange={(e) => setTeamFilter((e.target as HTMLSelectElement).value)}
+                  >
+                    <option value="all">All Teams</option>
+                    <For each={getUniqueTeams()}>
+                      {(team) => <option value={team}>{team}</option>}
+                    </For>
+                  </select>
+                </div>
+                
+                <div class="filter-group">
+                  <label class="filter-label">Risk Size:</label>
+                  <select 
+                    class="filter-select"
+                    value={riskFilter()}
+                    onchange={(e) => setRiskFilter((e.target as HTMLSelectElement).value)}
+                  >
+                    <option value="all">All Sizes</option>
+                    <option value="low">Low (&lt;$10)</option>
+                    <option value="medium">Medium ($10-$20)</option>
+                    <option value="high">High (&gt;$20)</option>
+                  </select>
+                </div>
+                
+                <div class="filter-group">
+                  <label class="filter-label">Spread:</label>
+                  <select 
+                    class="filter-select"
+                    value={spreadFilter()}
+                    onchange={(e) => setSpreadFilter((e.target as HTMLSelectElement).value)}
+                  >
+                    <option value="all">All Spreads</option>
+                    <option value="low">Low (&lt;5)</option>
+                    <option value="medium">Medium (5-10)</option>
+                    <option value="high">High (&gt;10)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -324,7 +420,11 @@ export default function Portfolio() {
                 </div>
                 <For each={getFilteredBets()}>
                   {(bet) => (
-                    <div class="table-row">
+                    <div 
+                      class="table-row clickable-row"
+                      onclick={() => navigate(`/bet/${bet.id}`)}
+                      style="cursor: pointer;"
+                    >
                       <div class="col-date">{formatDate(bet.created_at || bet.date)}</div>
                       <div class="col-game">
                         {bet.away_team} @ {bet.home_team}

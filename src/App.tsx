@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import GameDetail from './pages/GameDetail';
 import BetInput from './pages/BetInput';
 import Portfolio from './pages/Portfolio';
+import BetDetail from './pages/BetDetail';
 import TestPage from './pages/TestPage';
 import './App.css';
 
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/game/:gameId" component={GameDetail} />
       <Route path="/bet" component={BetInput} />
       <Route path="/bet/:gameId" component={BetInput} />
+      <Route path="/bet/:id" component={BetDetail} />
       <Route path="/portfolio" component={Portfolio} />
     </Router>
   );

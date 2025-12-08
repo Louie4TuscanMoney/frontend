@@ -4,8 +4,17 @@
 // VITE_SHAP_API_URL=https://your-shap-api.railway.app
 // VITE_BETINPUT_API_URL=https://your-betinput-api.railway.app
 
-const NBA_API_URL = import.meta.env.VITE_NBA_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://nba-api.railway.app');
+// Ensure URL has https:// protocol
+const getNBAUrl = () => {
+  const url = import.meta.env.VITE_NBA_API_URL || 
+    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://web-production-8ddddc.up.railway.app');
+  // Add https:// if missing
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url}`;
+  }
+  return url;
+};
+const NBA_API_URL = getNBAUrl();
   
 const SHAP_API_URL = import.meta.env.VITE_SHAP_API_URL || 
   (import.meta.env.DEV ? 'http://localhost:5000' : 'https://shap-api.railway.app');
@@ -13,14 +22,13 @@ const SHAP_API_URL = import.meta.env.VITE_SHAP_API_URL ||
 const BETINPUT_API_URL = import.meta.env.VITE_BETINPUT_API_URL || 
   (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-api.railway.app');
 
-// Log API URLs in development
-if (import.meta.env.DEV) {
-  console.log('🌐 Frontend API Configuration:');
-  console.log('   NBA API:', NBA_API_URL);
-  console.log('   SHAP API:', SHAP_API_URL);
-  console.log('   BetInput API:', BETINPUT_API_URL);
-  console.log('');
-}
+// Log API URLs (always log for debugging)
+console.log('🌐 Frontend API Configuration:');
+console.log('   NBA API:', NBA_API_URL);
+console.log('   SHAP API:', SHAP_API_URL);
+console.log('   BetInput API:', BETINPUT_API_URL);
+console.log('   VITE_NBA_API_URL env:', import.meta.env.VITE_NBA_API_URL);
+console.log('');
 
 // Types
 // NBA API format (from /nba folder - FastAPI service)
@@ -72,21 +80,34 @@ export interface BetData {
 export const nbaApi = {
   async getAllGames(): Promise<NBAGame[]> {
     try {
-      const response = await fetch(`${NBA_API_URL}/games`, {
+      const url = `${NBA_API_URL}/games`;
+      console.log('Fetching games from:', url);
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-        }
+        },
+        mode: 'cors'
       });
+      
       if (!response.ok) {
-        console.error(`NBA API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`NBA API error: ${response.status} ${response.statusText}`, errorText);
         return [];
       }
+      
       const data = await response.json();
-      return data.games || [];
+      console.log('NBA API response:', data);
+      
+      // Handle both formats: {games: [...]} and direct array
+      if (Array.isArray(data)) {
+        return data;
+      }
+      return data.games || data.all_games || [];
     } catch (error) {
       console.error('NBA API connection error:', error);
       console.error(`NBA API URL: ${NBA_API_URL}/games`);
+      console.error('Error details:', error);
       return [];
     }
   },

@@ -16,48 +16,17 @@ export default function Portfolio() {
     try {
       setLoading(true);
       
-      console.log('📊 Loading portfolio data...');
-      
-      // Get portfolio data (now includes bet_history)
+      // Get portfolio data (includes bet_history, statistics, balance)
       const portfolioData = await betInputApi.getPortfolio();
-      console.log('📊 Portfolio data received:', portfolioData);
-      console.log('📊 Bet history from portfolio:', portfolioData?.bet_history?.length || 0, 'bets');
       setPortfolio(portfolioData);
       
-      // Get all bets (includes both new and historical, already merged by API)
-      const historyData = await betInputApi.getBets();
-      console.log('📊 Bets data received:', historyData);
-      console.log('📊 Bets from /api/bets:', historyData.bets?.length || 0, 'bets');
+      // Use bet_history from portfolio (already includes all bets from trade_log.json)
+      const bets = portfolioData?.bet_history || [];
+      setBetHistory(bets);
       
-      // Combine bets from portfolio bet_history and /api/bets
-      const portfolioBets = portfolioData?.bet_history || [];
-      const apiBets = historyData.bets || [];
+      console.log(`📊 Portfolio loaded: ${bets.length} bets, balance: $${portfolioData?.balance || 0}`);
       
-      console.log('📊 Merging bets: portfolio=', portfolioBets.length, 'api=', apiBets.length);
-      
-      // Merge and deduplicate by ID (prefer API bets as they're more up-to-date)
-      const allBets = [...apiBets];
-      const existingIds = new Set(apiBets.map(b => b.id));
-      portfolioBets.forEach(bet => {
-        if (!bet.id || !existingIds.has(bet.id)) {
-          allBets.push(bet);
-          if (bet.id) existingIds.add(bet.id);
-        }
-      });
-      
-      console.log('📊 Total merged bets:', allBets.length);
-      
-      // Sort by date (newest first)
-      allBets.sort((a, b) => {
-        const dateA = new Date(a.created_at || a.date || 0).getTime();
-        const dateB = new Date(b.created_at || b.date || 0).getTime();
-        return dateB - dateA;
-      });
-      
-      setBetHistory(allBets);
-      console.log('📊 Bet history set:', allBets.length, 'bets');
-      
-      // Auto-resolve pending bets
+      // Auto-resolve pending bets in background
       try {
         const betInputUrl = import.meta.env.VITE_BETINPUT_API_URL || 
           (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
@@ -71,8 +40,6 @@ export default function Portfolio() {
       }
     } catch (error) {
       console.error('❌ Error loading portfolio:', error);
-      console.error('❌ Portfolio API URL:', import.meta.env.VITE_BETINPUT_API_URL);
-      console.error('❌ Error details:', error);
     } finally {
       setLoading(false);
     }

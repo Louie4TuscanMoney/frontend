@@ -76,7 +76,7 @@ export default function Portfolio() {
       setBetHistory(bets);
       
       // Count pending bets
-      const pendingCount = bets.filter(b => {
+      const pendingCount = bets.filter((b: any) => {
         const status = (b.status || b.result || '').toLowerCase();
         return status === 'pending';
       }).length;

@@ -463,7 +463,8 @@ export const betInputApi = {
 
   async getPortfolio() {
     try {
-      const url = `${BETINPUT_API_URL}/api/portfolio`;
+      // Add cache-busting timestamp to ensure fresh data
+      const url = `${BETINPUT_API_URL}/api/portfolio?t=${Date.now()}`;
       // Fetch portfolio
       
       const response = await fetch(url, {
@@ -473,7 +474,8 @@ export const betInputApi = {
           'Content-Type': 'application/json',
         },
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'omit',
+        cache: 'no-cache' // Ensure fresh data
       });
       
       console.log('📊 Portfolio response status:', response.status, response.statusText);

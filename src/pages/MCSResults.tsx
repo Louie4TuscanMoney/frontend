@@ -63,7 +63,7 @@ export default function MCSResults() {
       
       // Add timeout wrapper to ensure loading state is cleared
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout - please try again')), 20000);
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 35000); // 35 seconds to match API timeout
       });
       
       const apiStartTime = performance.now();

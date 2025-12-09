@@ -618,7 +618,7 @@ export const data1Api = {
   async getDailyMCS(date: string): Promise<DailyData> {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
-    const url = `${DATA_API_URL}/api/daily/DailyMCS/${date}`;
+    const url = `${DATA_API_URL}/api/daily/DailyMCS/${date}?metadata_only=true`;
     
     console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] GET ${url}`);
     
@@ -627,10 +627,13 @@ export const data1Api = {
         url,
         {
           mode: 'cors',
-          headers: { 'Accept': 'application/json' },
+          headers: { 
+            'Accept': 'application/json',
+            'X-Request-ID': requestId
+          },
           cache: 'no-cache'
         },
-        15000 // 15 second timeout
+        30000 // 30 second timeout (increased for large date folders)
       );
       
       const elapsed = performance.now() - startTime;

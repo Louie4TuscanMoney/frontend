@@ -21,6 +21,7 @@ export default function BetInput() {
   const [calculating, setCalculating] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
   const [message, setMessage] = createSignal('');
+  const [loading, setLoading] = createSignal(true);
 
   // Sync spreadSign with spread value
   createEffect(() => {
@@ -35,24 +36,23 @@ export default function BetInput() {
 
   onMount(async () => {
     await loadData();
-    
-    // If gameId in URL, auto-select it
-    if (params.gameId) {
-      const game = games().find(g => g.game_id === params.gameId);
-      if (game) {
-        setSelectedGame(game);
-      }
-    }
   });
 
   async function loadData() {
     try {
+      setLoading(true);
       // Load balance and games from NBA API (more reliable)
       const [balanceData, nbaGames] = await Promise.all([
-        betInputApi.getBalance(),
-        nbaApi.getAllGames()
+        betInputApi.getBalance().catch(err => {
+          console.error('Error loading balance:', err);
+          return { balance: 150 }; // Fallback to default balance
+        }),
+        nbaApi.getAllGames().catch(err => {
+          console.error('Error loading games:', err);
+          return []; // Return empty array if games fail
+        })
       ]);
-      setBalance(balanceData.balance || 0);
+      setBalance(balanceData.balance || 150);
       
       // Convert NBA games to BetInput format
       const formattedGames = nbaGames.map(game => ({
@@ -65,9 +65,19 @@ export default function BetInput() {
         game_time: game.formattedClock || game.gameClock
       }));
       setGames(formattedGames);
+      
+      // If gameId in URL, auto-select it
+      if (params.gameId) {
+        const game = formattedGames.find(g => g.game_id === params.gameId);
+        if (game) {
+          setSelectedGame(game);
+        }
+      }
     } catch (error) {
       console.error('Error loading data:', error);
-      setMessage('Error loading data');
+      setMessage('Error loading data. You can still place a bet manually.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -169,8 +179,14 @@ export default function BetInput() {
         </div>
       </div>
 
+      <Show when={loading()}>
+        <div class="loading-message" style="text-align: center; padding: 2rem; color: #94a3b8;">
+          Loading games and balance...
+        </div>
+      </Show>
+
       <Show when={message()}>
-        <div class={`message ${message().includes('success') ? 'success' : 'error'}`}>
+        <div class={`message ${message().includes('success') || message().includes('✅') ? 'success' : 'error'}`}>
           {message()}
         </div>
       </Show>

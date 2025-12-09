@@ -152,17 +152,33 @@ export const nbaApi = {
 
   async getGameById(gameId: string): Promise<NBAGame | null> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      
       const response = await fetch(`${NBA_API_URL}/games/${gameId}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
-        mode: 'cors'
+        mode: 'cors',
+        signal: controller.signal
       });
-      if (!response.ok) return null;
-      return await response.json();
-    } catch (error) {
-      console.error('NBA API error:', error);
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`NBA API error: ${response.status} ${response.statusText}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('NBA API timeout:', error);
+      } else {
+        console.error('NBA API error:', error);
+      }
       return null;
     }
   },

@@ -35,13 +35,13 @@ const BETINPUT_API_URL = ensureHttps(
   (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app')
 );
 
-// Log API URLs (always log for debugging)
-console.log('🌐 Frontend API Configuration:');
-console.log('   NBA API:', NBA_API_URL);
-console.log('   SHAP API:', SHAP_API_URL);
-console.log('   BetInput API:', BETINPUT_API_URL);
-console.log('   VITE_NBA_API_URL env:', import.meta.env.VITE_NBA_API_URL);
-console.log('');
+// Log API URLs (only in development)
+if (import.meta.env.DEV) {
+  console.log('🌐 Frontend API Configuration:');
+  console.log('   NBA API:', NBA_API_URL);
+  console.log('   SHAP API:', SHAP_API_URL);
+  console.log('   BetInput API:', BETINPUT_API_URL);
+}
 
 // Types
 // NBA API format (from /nba folder - FastAPI service)

@@ -106,11 +106,11 @@ export default function GameDetail() {
                   <p>No prediction data available.</p>
                 </div>
               }>
-                <pre class="shap-data">{JSON.stringify(currentShap.prediction, null, 2)}</pre>
+                <pre class="shap-data">{JSON.stringify(currentShap?.prediction, null, 2)}</pre>
               </Show>
             }>
               <div class="shap-data-grid">
-                {Object.entries(currentShap!.prediction as Record<string, any>).map(([key, value]) => {
+                {currentShap && Object.entries(currentShap.prediction as Record<string, any>).map(([key, value]) => {
                   // Format value nicely
                   const formattedValue = typeof value === 'number' 
                     ? value.toFixed(4) 

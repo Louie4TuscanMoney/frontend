@@ -179,6 +179,14 @@
   word-break: break-word;
 }
 
+.shap-value.positive {
+  color: #10b981;
+}
+
+.shap-value.negative {
+  color: #ef4444;
+}
+
 .shap-data {
   background: rgba(15, 23, 42, 0.8);
   padding: 1.5rem;

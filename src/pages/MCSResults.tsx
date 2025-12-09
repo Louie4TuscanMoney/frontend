@@ -482,8 +482,64 @@ export default function MCSResults() {
       </div>
 
       <Show when={runStatus()}>
-        <div class={`status-message ${running() ? 'running' : ''}`}>
+        <div class={`status-message ${running() ? 'running' : masterLogs()?.status === 'failed' ? 'failed' : ''}`}>
           {runStatus()}
+          <Show when={masterLogs()?.error}>
+            <div class="error-details" style="margin-top: 8px; font-size: 0.9em; color: #ff4444;">
+              {masterLogs()?.error}
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={masterLogs() && (showLogs() || running())}>
+        <div class="master-logs-container" style="margin: 20px 0; padding: 15px; background: #1e1e1e; border-radius: 8px; max-height: 400px; overflow-y: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0; color: #fff;">Master.py Execution Logs</h3>
+            <button 
+              onClick={() => setShowLogs(!showLogs())}
+              style="background: #333; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer;"
+            >
+              {showLogs() ? 'Hide' : 'Show'} Logs
+            </button>
+          </div>
+          
+          <Show when={showLogs()}>
+            <div style="margin-bottom: 15px;">
+              <div style="color: #888; font-size: 0.85em; margin-bottom: 5px;">
+                Status: <strong style={`color: ${masterLogs()?.status === 'completed' ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : '#ffa500'}`}>{masterLogs()?.status || 'unknown'}</strong>
+                {masterLogs()?.returncode !== null && ` | Exit Code: ${masterLogs()?.returncode}`}
+              </div>
+              <Show when={masterLogs()?.start_time}>
+                <div style="color: #888; font-size: 0.85em; margin-bottom: 5px;">
+                  Started: {new Date(masterLogs()?.start_time || '').toLocaleString()}
+                  {masterLogs()?.end_time && ` | Ended: ${new Date(masterLogs()?.end_time || '').toLocaleString()}`}
+                </div>
+              </Show>
+            </div>
+            
+            <Show when={masterLogs()?.stdout}>
+              <div style="margin-bottom: 15px;">
+                <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px;">STDOUT:</div>
+                <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word;">
+                  {masterLogs()?.stdout || '(empty)'}
+                </pre>
+              </div>
+            </Show>
+            
+            <Show when={masterLogs()?.stderr}>
+              <div>
+                <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">STDERR:</div>
+                <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #f44; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word;">
+                  {masterLogs()?.stderr || '(empty)'}
+                </pre>
+              </div>
+            </Show>
+            
+            <Show when={!masterLogs()?.stdout && !masterLogs()?.stderr}>
+              <div style="color: #888; font-style: italic;">No logs available yet...</div>
+            </Show>
+          </Show>
         </div>
       </Show>
 

@@ -9,8 +9,9 @@ export default function GameDetail() {
   const location = useLocation();
   
   // Get game data from navigation state (passed from Home page)
-  const gameData = location.state?.game as NBAGame | undefined;
-  const shapDataFromHome = location.state?.shap as SHAPPrediction | undefined;
+  const state = location.state as { game?: NBAGame; shap?: SHAPPrediction } | undefined;
+  const gameData = state?.game;
+  const shapDataFromHome = state?.shap;
   
   const [game, setGame] = createSignal<NBAGame | null>(gameData || null);
   const [shap, setShap] = createSignal<SHAPPrediction | null>(shapDataFromHome || null);

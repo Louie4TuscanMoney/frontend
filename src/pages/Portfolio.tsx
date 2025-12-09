@@ -190,48 +190,61 @@ export default function Portfolio() {
     return 'Pending';
   }
 
-  const portfolioData = portfolio();
+  // Calculate stats from bet history (reactive)
+  const portfolioData = () => portfolio();
+  const allBets = () => betHistory();
   
-  // Extract statistics with fallbacks
-  const stats = portfolioData?.statistics || {};
+  // Extract statistics with fallbacks (computed reactively)
+  const stats = () => portfolioData()?.statistics || {};
   
   // Ensure PNL and Sharpe data exists
-  const pnl = stats.pnl || portfolioData?.pnl || { 
-    day: { total_profit: 0, bets: 0, total_risk: 0 }, 
-    week: { total_profit: 0, bets: 0, total_risk: 0 }, 
-    overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+  const pnl = () => {
+    const pd = portfolioData();
+    const s = stats();
+    return s.pnl || pd?.pnl || { 
+      day: { total_profit: 0, bets: 0, total_risk: 0 }, 
+      week: { total_profit: 0, bets: 0, total_risk: 0 }, 
+      overall: { total_profit: 0, bets: 0, total_risk: 0 } 
+    };
   };
   
-  const sharpe_ratio = stats.sharpe_ratio || portfolioData?.sharpe_ratio || { day: 0, week: 0, overall: 0 };
+  const sharpe_ratio = () => {
+    const pd = portfolioData();
+    const s = stats();
+    return s.sharpe_ratio || pd?.sharpe_ratio || { day: 0, week: 0, overall: 0 };
+  };
   
   // Calculate stats from bet history
-  const allBets = betHistory();
-  const calculatedStats = {
-    total_bets: stats.total_bets ?? allBets.length,
-    wins: stats.wins ?? allBets.filter(b => {
-      const status = (b.status || b.result || '').toLowerCase();
-      return status === 'won' || status === 'win';
-    }).length,
-    losses: stats.losses ?? allBets.filter(b => {
-      const status = (b.status || b.result || '').toLowerCase();
-      return status === 'lost' || status === 'loss';
-    }).length,
-    pending: stats.pending ?? allBets.filter(b => {
-      const status = (b.status || b.result || 'pending').toLowerCase();
-      return status === 'pending';
-    }).length,
-    total_profit: stats.total_profit ?? allBets.reduce((sum, b) => sum + (b.profit || 0), 0),
-    win_rate: stats.win_rate ?? (() => {
-      const resolved = allBets.filter(b => {
-        const status = (b.status || b.result || 'pending').toLowerCase();
-        return status !== 'pending';
-      });
-      const won = resolved.filter(b => {
+  const calculatedStats = () => {
+    const bets = allBets();
+    const s = stats();
+    return {
+      total_bets: s.total_bets ?? bets.length,
+      wins: s.wins ?? bets.filter(b => {
         const status = (b.status || b.result || '').toLowerCase();
         return status === 'won' || status === 'win';
-      });
-      return resolved.length > 0 ? won.length / resolved.length : 0;
-    })()
+      }).length,
+      losses: s.losses ?? bets.filter(b => {
+        const status = (b.status || b.result || '').toLowerCase();
+        return status === 'lost' || status === 'loss';
+      }).length,
+      pending: s.pending ?? bets.filter(b => {
+        const status = (b.status || b.result || 'pending').toLowerCase();
+        return status === 'pending';
+      }).length,
+      total_profit: s.total_profit ?? bets.reduce((sum, b) => sum + (b.profit || 0), 0),
+      win_rate: s.win_rate ?? (() => {
+        const resolved = bets.filter(b => {
+          const status = (b.status || b.result || 'pending').toLowerCase();
+          return status !== 'pending';
+        });
+        const won = resolved.filter(b => {
+          const status = (b.status || b.result || '').toLowerCase();
+          return status === 'won' || status === 'win';
+        });
+        return resolved.length > 0 ? won.length / resolved.length : 0;
+      })()
+    };
   };
 
   return (

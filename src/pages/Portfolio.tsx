@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show } from 'solid-js';
+import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { betInputApi } from '../api/clients';
 import '../styles/Portfolio.css';
@@ -15,27 +15,28 @@ export default function Portfolio() {
 
   onMount(async () => {
     await loadPortfolioData();
-  });
-
-  // Refresh when page becomes visible (e.g., after navigating back from BetInput)
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', async () => {
+    
+    // Refresh when page becomes visible (e.g., after navigating back from BetInput)
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
         await loadPortfolioData();
       }
-    });
+    };
     
     // Also refresh when navigating to this page (handles back button, direct navigation)
     const handleFocus = () => {
       loadPortfolioData();
     };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     
     // Cleanup
-    return () => {
+    onCleanup(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
-    };
-  }
+    });
+  });
 
   async function loadPortfolioData() {
     try {
@@ -251,28 +252,28 @@ export default function Portfolio() {
             <div class="summary-card balance">
               <div class="card-label">Current Balance</div>
               <div class="card-value">
-                ${(portfolioData?.balance ?? 150).toFixed(2)}
+                ${(portfolioData()?.balance ?? 150).toFixed(2)}
               </div>
             </div>
             
             <div class="summary-card risk">
               <div class="card-label">Risk % (Kelly)</div>
               <div class="card-value">
-                {(portfolioData?.risk_percent ?? 7.33).toFixed(2)}%
+                {(portfolioData()?.risk_percent ?? 7.33).toFixed(2)}%
               </div>
             </div>
 
             <div class="summary-card total-bets">
               <div class="card-label">Total Bets</div>
               <div class="card-value">
-                {calculatedStats.total_bets}
+                {calculatedStats().total_bets}
               </div>
             </div>
 
             <div class="summary-card win-rate">
               <div class="card-label">Win Rate</div>
               <div class="card-value">
-                {(calculatedStats.win_rate * 100).toFixed(1)}%
+                {(calculatedStats().win_rate * 100).toFixed(1)}%
               </div>
             </div>
           </div>
@@ -283,29 +284,29 @@ export default function Portfolio() {
             <div class="pnl-grid">
               <div class="pnl-card">
                 <div class="pnl-label">Today</div>
-                <div class={`pnl-value ${(pnl?.day?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(pnl?.day?.total_profit ?? 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl()?.day?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl()?.day?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {pnl?.day?.bets ?? 0} bets • ${(pnl?.day?.total_risk ?? 0).toFixed(2)} risk
+                  {pnl()?.day?.bets ?? 0} bets • ${(pnl()?.day?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
               <div class="pnl-card">
                 <div class="pnl-label">This Week</div>
-                <div class={`pnl-value ${(pnl?.week?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(pnl?.week?.total_profit ?? 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl()?.week?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl()?.week?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {pnl?.week?.bets ?? 0} bets • ${(pnl?.week?.total_risk ?? 0).toFixed(2)} risk
+                  {pnl()?.week?.bets ?? 0} bets • ${(pnl()?.week?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
               <div class="pnl-card">
                 <div class="pnl-label">Overall</div>
-                <div class={`pnl-value ${(pnl?.overall?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
-                  ${(pnl?.overall?.total_profit ?? 0).toFixed(2)}
+                <div class={`pnl-value ${(pnl()?.overall?.total_profit ?? 0) >= 0 ? 'profit' : 'loss'}`}>
+                  ${(pnl()?.overall?.total_profit ?? 0).toFixed(2)}
                 </div>
                 <div class="pnl-details">
-                  {pnl?.overall?.bets ?? 0} bets • ${(pnl?.overall?.total_risk ?? 0).toFixed(2)} risk
+                  {pnl()?.overall?.bets ?? 0} bets • ${(pnl()?.overall?.total_risk ?? 0).toFixed(2)} risk
                 </div>
               </div>
             </div>
@@ -318,19 +319,19 @@ export default function Portfolio() {
               <div class="sharpe-card">
                 <div class="sharpe-label">Today</div>
                 <div class="sharpe-value">
-                  {(sharpe_ratio?.day ?? 0).toFixed(4)}
+                  {(sharpe_ratio()?.day ?? 0).toFixed(4)}
                 </div>
               </div>
               <div class="sharpe-card">
                 <div class="sharpe-label">This Week</div>
                 <div class="sharpe-value">
-                  {(sharpe_ratio?.week ?? 0).toFixed(4)}
+                  {(sharpe_ratio()?.week ?? 0).toFixed(4)}
                 </div>
               </div>
               <div class="sharpe-card">
                 <div class="sharpe-label">Overall</div>
                 <div class="sharpe-value">
-                  {(sharpe_ratio?.overall ?? 0).toFixed(4)}
+                  {(sharpe_ratio()?.overall ?? 0).toFixed(4)}
                 </div>
               </div>
             </div>
@@ -340,20 +341,20 @@ export default function Portfolio() {
           <div class="portfolio-stats">
             <div class="stat-item">
               <span class="stat-label">Wins:</span>
-              <span class="stat-value wins">{calculatedStats.wins}</span>
+              <span class="stat-value wins">{calculatedStats().wins}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Losses:</span>
-              <span class="stat-value losses">{calculatedStats.losses}</span>
+              <span class="stat-value losses">{calculatedStats().losses}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Pending:</span>
-              <span class="stat-value pending">{calculatedStats.pending}</span>
+              <span class="stat-value pending">{calculatedStats().pending}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Total Profit:</span>
-              <span class={`stat-value ${calculatedStats.total_profit >= 0 ? 'profit' : 'loss'}`}>
-                ${calculatedStats.total_profit.toFixed(2)}
+              <span class={`stat-value ${calculatedStats().total_profit >= 0 ? 'profit' : 'loss'}`}>
+                ${calculatedStats().total_profit.toFixed(2)}
               </span>
             </div>
           </div>

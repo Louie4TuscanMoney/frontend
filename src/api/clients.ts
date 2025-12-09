@@ -601,13 +601,43 @@ export const data1Api = {
         headers: { 'Accept': 'application/json' },
         cache: 'no-cache'
       });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch DailyMCS: ${response.statusText}`);
+      
+      // Handle server errors (502, 503, etc.)
+      if (response.status >= 500) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
-      return response.json();
+      
+      // 404 is OK - return empty result (backend returns empty array now)
+      if (response.status === 404) {
+        return {
+          folder: 'DailyMCS',
+          date: date,
+          files: [],
+          count: 0
+        };
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch DailyMCS: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      // Ensure we always return the expected format
+      return {
+        folder: data.folder || 'DailyMCS',
+        date: data.date || date,
+        files: data.files || [],
+        count: data.count || 0
+      };
     } catch (error: any) {
       console.error('Data1 API error (getDailyMCS):', error);
-      throw error;
+      // Return empty result instead of throwing for better UX
+      return {
+        folder: 'DailyMCS',
+        date: date,
+        files: [],
+        count: 0
+      };
     }
   },
 

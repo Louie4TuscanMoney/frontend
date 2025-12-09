@@ -32,9 +32,21 @@ export default function MCSResults() {
       setError(null);
       const data = await data1Api.getDailyMCS(date);
       setPredictions(data.files || []);
+      
+      // Only show error if there's an actual error AND no files
+      // Empty results are OK - just means no predictions for that date
+      if (data.count === 0 && !data.files || data.files.length === 0) {
+        // No error - just no data (this is normal for dates without predictions)
+        setError(null);
+      }
     } catch (err: any) {
       console.error('Error loading predictions:', err);
-      setError(err.message || 'Failed to load predictions');
+      // Only set error for actual failures, not empty results
+      if (err.message && !err.message.includes('No data found')) {
+        setError(err.message || 'Failed to load predictions');
+      } else {
+        setError(null);
+      }
       setPredictions([]);
     } finally {
       setLoading(false);

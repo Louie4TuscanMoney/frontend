@@ -616,9 +616,15 @@ export const data1Api = {
    * Get all MCS predictions for a date
    */
   async getDailyMCS(date: string): Promise<DailyData> {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = performance.now();
+    const url = `${DATA_API_URL}/api/daily/DailyMCS/${date}`;
+    
+    console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] GET ${url}`);
+    
     try {
       const response = await fetchWithTimeout(
-        `${DATA_API_URL}/api/daily/DailyMCS/${date}`,
+        url,
         {
           mode: 'cors',
           headers: { 'Accept': 'application/json' },
@@ -627,13 +633,17 @@ export const data1Api = {
         15000 // 15 second timeout
       );
       
+      const elapsed = performance.now() - startTime;
+      
       // Handle server errors (502, 503, etc.)
       if (response.status >= 500) {
+        console.error(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Server error: ${response.status} ${response.statusText} (${elapsed.toFixed(0)}ms)`);
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
       
       // 404 is OK - return empty result (backend returns empty array now)
       if (response.status === 404) {
+        console.warn(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] 404 - No data found (${elapsed.toFixed(0)}ms)`);
         return {
           folder: 'DailyMCS',
           date: date,
@@ -643,10 +653,20 @@ export const data1Api = {
       }
       
       if (!response.ok) {
+        console.error(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] HTTP ${response.status}: ${response.statusText} (${elapsed.toFixed(0)}ms)`);
         throw new Error(`Failed to fetch DailyMCS: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      const totalElapsed = performance.now() - startTime;
+      const fileCount = data.files?.length || 0;
+      
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${totalElapsed.toFixed(0)}ms) - ${fileCount} files`);
+      
+      if (data.performance) {
+        console.log(`[PERF] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Backend performance:`, data.performance);
+      }
+      
       // Ensure we always return the expected format
       return {
         folder: data.folder || 'DailyMCS',
@@ -655,7 +675,14 @@ export const data1Api = {
         count: data.count || 0
       };
     } catch (error: any) {
-      console.error('Data1 API error (getDailyMCS):', error);
+      const elapsed = performance.now() - startTime;
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Data1 API error after ${elapsed.toFixed(0)}ms:`, error);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
       // Return empty result instead of throwing for better UX
       // This prevents infinite loading states
       return {
@@ -735,20 +762,40 @@ export const mcs1Api = {
    * Manually trigger Master.py execution
    */
   async triggerMasterPy(): Promise<{ status: string; message: string; timestamp: string }> {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = performance.now();
+    const url = `${MCS_API_URL}/api/run`;
+    
+    console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] POST ${url}`);
+    
     try {
-      const response = await fetch(`${MCS_API_URL}/api/run`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         mode: 'cors',
         cache: 'no-cache'
       });
+      
+      const elapsed = performance.now() - startTime;
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] HTTP ${response.status}: ${response.statusText} (${elapsed.toFixed(0)}ms)`, errorData);
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
-      return response.json();
+      
+      const data = await response.json();
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${elapsed.toFixed(0)}ms)`, data);
+      
+      return data;
     } catch (error: any) {
-      console.error('MCS1 API error (triggerMasterPy):', error);
+      const elapsed = performance.now() - startTime;
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] MCS1 API error after ${elapsed.toFixed(0)}ms:`, error);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       throw error;
     }
   },
@@ -756,18 +803,43 @@ export const mcs1Api = {
   /**
    * Check if Master.py is currently running
    */
-  async getRunStatus(): Promise<{ running: boolean; timestamp: string }> {
+  async getRunStatus(): Promise<{ running: boolean; timestamp?: string }> {
+    const requestId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = performance.now();
+    const url = `${MCS_API_URL}/api/run/status`;
+    
+    console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] GET ${url}`);
+    
     try {
-      const response = await fetch(`${MCS_API_URL}/api/run/status`, {
+      const response = await fetch(url, {
         mode: 'cors',
+        headers: { 
+          'Accept': 'application/json',
+          'X-Request-ID': requestId
+        },
         cache: 'no-cache'
       });
+      
+      const elapsed = performance.now() - startTime;
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] HTTP ${response.status}: ${response.statusText} (${elapsed.toFixed(0)}ms)`, errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      return response.json();
+      
+      const data = await response.json();
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${elapsed.toFixed(0)}ms)`, data);
+      
+      return data;
     } catch (error: any) {
-      console.error('MCS1 API error (getRunStatus):', error);
+      const elapsed = performance.now() - startTime;
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] MCS1 API error (getRunStatus) after ${elapsed.toFixed(0)}ms:`, error);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       return { running: false, timestamp: new Date().toISOString() };
     }
   },

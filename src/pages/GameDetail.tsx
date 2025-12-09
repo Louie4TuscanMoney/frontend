@@ -12,19 +12,42 @@ export default function GameDetail() {
   const [records, setRecords] = createSignal<any>(null);
   const [playByPlay, setPlayByPlay] = createSignal<any>(null);
   const [loading, setLoading] = createSignal(true);
+  const [error, setError] = createSignal<string | null>(null);
   const [activeTab, setActiveTab] = createSignal<'overview' | 'rosters' | 'playbyplay'>('overview');
 
   let interval: number;
 
   onMount(async () => {
-    await loadGame();
-    await loadAdditionalData();
+    // Set a timeout to ensure loading always resolves
+    const timeoutId = setTimeout(() => {
+      if (loading()) {
+        console.warn('Game loading timeout - showing error state');
+        setError('Game data is taking longer than expected. Please try refreshing.');
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    try {
+      await loadGame();
+      // Load additional data in background (don't block UI)
+      loadAdditionalData().catch(err => {
+        console.error('Error loading additional data:', err);
+        // Don't set error - these are optional features
+      });
+    } catch (err) {
+      console.error('Error in onMount:', err);
+      setError('Failed to load game. Please try again.');
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+    }
+
     // Refresh every 5 seconds for live games
     interval = setInterval(async () => {
       const currentGame = game();
       if (currentGame && currentGame.gameStatusText !== 'Final' && currentGame.gameStatusText !== 'Scheduled') {
-        await loadGame();
-        await loadPlayByPlay(); // Refresh play-by-play for live games
+        await loadGame().catch(err => console.error('Error refreshing game:', err));
+        await loadPlayByPlay().catch(err => console.error('Error refreshing play-by-play:', err));
       }
     }, 5000);
   });
@@ -35,38 +58,65 @@ export default function GameDetail() {
 
   async function loadGame() {
     try {
-      setLoading(true);
-      const [gameData, shapData] = await Promise.all([
-        nbaApi.getGameById(params.gameId).catch(err => {
-          console.error('Error loading game from NBA API:', err);
-          return null;
-        }),
-        shapApi.getPredictionForGame(params.gameId).catch(err => {
-          console.error('Error loading SHAP prediction:', err);
-          return null;
-        })
-      ]);
+      setError(null);
+      const gamePromise = nbaApi.getGameById(params.gameId);
+      const shapPromise = shapApi.getPredictionForGame(params.gameId);
+      
+      // Add timeout to individual API calls
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), 5000);
+      });
+
+      const [gameData, shapData] = await Promise.race([
+        Promise.all([
+          gamePromise.catch(err => {
+            console.error('Error loading game from NBA API:', err);
+            return null;
+          }),
+          shapPromise.catch(err => {
+            console.error('Error loading SHAP prediction:', err);
+            return null;
+          })
+        ]),
+        timeoutPromise.then(() => [null, null])
+      ]) as [NBAGame | null, SHAPPrediction | null];
+
+      if (!gameData) {
+        setError('Game not found. It may have been removed or the game ID is invalid.');
+      }
+      
       setGame(gameData);
       setShap(shapData);
     } catch (error) {
       console.error('Error loading game:', error);
-    } finally {
-      setLoading(false);
+      setError('Failed to load game data. Please check your connection and try again.');
     }
   }
 
   async function loadAdditionalData() {
     try {
-      const [rostersData, recordsData, playByPlayData] = await Promise.all([
+      // Load additional data with timeout
+      const timeout = 8000; // 8 second timeout for additional data
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), timeout);
+      });
+
+      const dataPromise = Promise.all([
         nbaApi.getGameRosters(params.gameId).catch(() => null),
         nbaApi.getGameRecords(params.gameId).catch(() => null),
         nbaApi.getPlayByPlay(params.gameId).catch(() => null)
       ]);
-      setRosters(rostersData);
-      setRecords(recordsData);
-      setPlayByPlay(playByPlayData);
+
+      const result = await Promise.race([dataPromise, timeoutPromise.then(() => [null, null, null])]);
+      
+      if (result && Array.isArray(result)) {
+        setRosters(result[0]);
+        setRecords(result[1]);
+        setPlayByPlay(result[2]);
+      }
     } catch (error) {
       console.error('Error loading additional data:', error);
+      // Don't set error - these are optional features
     }
   }
 
@@ -84,12 +134,43 @@ export default function GameDetail() {
   }
 
   if (loading()) {
-    return <div class="game-detail loading">Loading game...</div>;
+    return (
+      <div class="game-detail loading">
+        <div class="loading-spinner"></div>
+        <p>Loading game data...</p>
+        <small>This may take a few seconds</small>
+      </div>
+    );
   }
 
   const currentGame = game();
-  if (!currentGame) {
-    return <div class="game-detail">Game not found</div>;
+  const errorMessage = error();
+  
+  if (errorMessage || !currentGame) {
+    return (
+      <div class="game-detail error-state">
+        <button class="back-button" onclick={() => navigate('/')}>
+          ← Back to Games
+        </button>
+        <div class="error-container">
+          <h2>⚠️ Unable to Load Game</h2>
+          <p>{errorMessage || 'Game not found. It may have been removed or the game ID is invalid.'}</p>
+          <div class="error-actions">
+            <button class="retry-button" onclick={async () => {
+              setLoading(true);
+              setError(null);
+              await loadGame();
+              setLoading(false);
+            }}>
+              🔄 Retry
+            </button>
+            <button class="back-button" onclick={() => navigate('/')}>
+              ← Back to Games
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const shapData = shap();

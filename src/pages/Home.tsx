@@ -40,6 +40,7 @@ export default function Home() {
       
       // Set SHAP when it arrives (non-blocking)
       shapPromise.then(shap => {
+        console.log(`📊 Loaded ${shap?.length || 0} SHAP predictions`);
         setShapPredictions(shap || []);
       });
     } catch (error) {

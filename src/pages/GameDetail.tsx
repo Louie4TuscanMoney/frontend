@@ -91,36 +91,49 @@ export default function GameDetail() {
       </div>
 
       <div class="shap-section">
-        <h3>SHAP Predictions</h3>
-        <Show when={loadingShap()} fallback={
-          <Show when={currentShap} fallback={
-            <div class="shap-no-data">
-              <p>No SHAP prediction available for this game.</p>
-            </div>
-          }>
-            <div class="shap-data-container">
-              {currentShap?.prediction && typeof currentShap.prediction === 'object' ? (
-                <div class="shap-data-grid">
-                  {Object.entries(currentShap.prediction).map(([key, value]) => (
-                    <div class="shap-data-item">
-                      <span class="shap-key">{key}:</span>
-                      <span class="shap-value">{String(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : currentShap?.prediction ? (
-                <pre class="shap-data">{JSON.stringify(currentShap.prediction, null, 2)}</pre>
-              ) : (
-                <div class="shap-no-data">
-                  <p>No prediction data available.</p>
-                </div>
-              )}
-            </div>
-          </Show>
-        }>
+        <h3>📊 SHAP Predictions</h3>
+        <Show when={loadingShap()}>
           <div class="shap-loading">
             <div class="shap-loading-spinner"></div>
             <p>Loading SHAP predictions...</p>
+          </div>
+        </Show>
+        <Show when={!loadingShap() && currentShap}>
+          <div class="shap-data-container">
+            <Show when={currentShap?.prediction && typeof currentShap.prediction === 'object'} fallback={
+              <Show when={currentShap?.prediction} fallback={
+                <div class="shap-no-data">
+                  <p>No prediction data available.</p>
+                </div>
+              }>
+                <pre class="shap-data">{JSON.stringify(currentShap.prediction, null, 2)}</pre>
+              </Show>
+            }>
+              <div class="shap-data-grid">
+                {Object.entries(currentShap!.prediction as Record<string, any>).map(([key, value]) => {
+                  // Format value nicely
+                  const formattedValue = typeof value === 'number' 
+                    ? value.toFixed(4) 
+                    : String(value);
+                  const isPositive = typeof value === 'number' && value > 0;
+                  
+                  return (
+                    <div class="shap-data-item">
+                      <span class="shap-key">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span>
+                      <span class={`shap-value ${isPositive ? 'positive' : typeof value === 'number' && value < 0 ? 'negative' : ''}`}>
+                        {formattedValue}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Show>
+          </div>
+        </Show>
+        <Show when={!loadingShap() && !currentShap}>
+          <div class="shap-no-data">
+            <p>No SHAP prediction available for this game.</p>
+            <small>Predictions may not be generated yet for this game.</small>
           </div>
         </Show>
       </div>

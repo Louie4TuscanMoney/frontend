@@ -15,7 +15,7 @@ export default function BetInput() {
   const [spread, setSpread] = createSignal<number | null>(null);
   const [spreadSign, setSpreadSign] = createSignal<'+' | '-'>('-');
   const [americanOdds, setAmericanOdds] = createSignal('');
-  const [riskPercent, setRiskPercent] = createSignal(7.33);
+  const [riskAmount, setRiskAmount] = createSignal<number | null>(null);
   
   const [betCalculation, setBetCalculation] = createSignal<any>(null);
   const [calculating, setCalculating] = createSignal(false);
@@ -73,19 +73,25 @@ export default function BetInput() {
 
   async function calculateBet() {
     const odds = parseFloat(americanOdds());
-    if (!odds || !selectedGame()) {
-      setMessage('Please select a game and enter odds');
+    const amount = riskAmount();
+    if (!odds || !selectedGame() || spread() === null || amount === null || amount <= 0) {
+      setMessage('Please select a game, team, spread, enter odds, and enter risk amount');
+      return;
+    }
+
+    if (amount > balance()) {
+      setMessage(`Risk amount ($${amount.toFixed(2)}) exceeds balance ($${balance().toFixed(2)})`);
       return;
     }
 
     setCalculating(true);
     try {
-      const result = await betInputApi.calculateBet(odds, riskPercent());
+      const result = await betInputApi.calculateBetFromAmount(odds, amount, balance());
       setBetCalculation(result);
       setMessage('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error calculating bet:', error);
-      setMessage('Error calculating bet');
+      setMessage(error.message || 'Error calculating bet');
     } finally {
       setCalculating(false);
     }
@@ -101,6 +107,7 @@ export default function BetInput() {
     setSubmitting(true);
     try {
       const game = selectedGame();
+      const calc = betCalculation();
       const betData = {
         game_id: String(game.game_id || game.gameId),
         home_team: game.home_team_name || game.homeTeam?.teamName,
@@ -111,7 +118,8 @@ export default function BetInput() {
         bet_type: 'Point Spread', // Always Point Spread
         spread: spread() ?? undefined,
         american_odds: parseFloat(americanOdds()),
-        risk_percent: riskPercent()
+        bet_amount: riskAmount() as number, // Use the risk amount as bet amount
+        risk_percent: calc?.risk_percent // Include calculated risk percent
       };
 
       const result = await betInputApi.createBet(betData);
@@ -272,13 +280,26 @@ export default function BetInput() {
           </div>
 
           <div class="form-group">
-            <label>Risk % (Kelly Criterion)</label>
+            <label>Risk Amount ($)</label>
             <input 
               type="number"
               step="0.01"
-              value={riskPercent()}
-              onInput={(e) => setRiskPercent(parseFloat(e.target.value) || 7.33)}
+              min="0.01"
+              max={balance()}
+              placeholder={`Max: $${balance().toFixed(2)}`}
+              value={riskAmount() ?? ''}
+              onInput={(e) => {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val) || val <= 0) {
+                  setRiskAmount(null);
+                } else {
+                  setRiskAmount(Math.min(val, balance())); // Cap at balance
+                }
+              }}
             />
+            <small style="color: #94a3b8; margin-top: 0.25rem; display: block;">
+              Enter how much you want to risk. Kelly Criterion will calculate the optimal percentage.
+            </small>
           </div>
 
           <button 
@@ -311,6 +332,10 @@ export default function BetInput() {
               <div class="calc-row">
                 <span>Win Probability:</span>
                 <strong>{(betCalculation()?.win_probability_percent || 0).toFixed(2)}%</strong>
+              </div>
+              <div class="calc-row">
+                <span>Risk % (Kelly):</span>
+                <strong>{(betCalculation()?.risk_percent || 0).toFixed(2)}%</strong>
               </div>
 
               <button 

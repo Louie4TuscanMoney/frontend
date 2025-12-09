@@ -85,7 +85,8 @@ export interface BetData {
   bet_type: string;
   spread?: number;
   american_odds: number;
-  risk_percent: number;
+  risk_percent?: number;
+  bet_amount?: number;
 }
 
 // NBA API Client (from /nba folder - FastAPI service)
@@ -308,6 +309,28 @@ export const betInputApi = {
       return await response.json();
     } catch (error) {
       console.error('BetInput API error (calculateBet):', error);
+      throw error;
+    }
+  },
+
+  async calculateBetFromAmount(americanOdds: number, betAmount: number, balance: number) {
+    try {
+      const response = await fetch(`${BETINPUT_API_URL}/api/calculate-bet-from-amount`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          american_odds: americanOdds, 
+          bet_amount: betAmount,
+          balance: balance
+        })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('BetInput API error (calculateBetFromAmount):', error);
       throw error;
     }
   },

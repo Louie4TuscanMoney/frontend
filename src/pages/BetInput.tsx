@@ -18,7 +18,6 @@ export default function BetInput() {
   const [riskAmount, setRiskAmount] = createSignal<number | null>(null);
   
   const [betCalculation, setBetCalculation] = createSignal<any>(null);
-  const [calculating, setCalculating] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
   const [message, setMessage] = createSignal('');
 
@@ -71,7 +70,7 @@ export default function BetInput() {
     }
   }
 
-  async function calculateBet() {
+  async function submitBet() {
     const odds = parseFloat(americanOdds());
     const amount = riskAmount();
     if (!odds || !selectedGame() || spread() === null || amount === null || amount <= 0) {
@@ -84,54 +83,42 @@ export default function BetInput() {
       return;
     }
 
-    setCalculating(true);
-    try {
-      const result = await betInputApi.calculateBetFromAmount(odds, amount, balance());
-      setBetCalculation(result);
-      setMessage('');
-    } catch (error: any) {
-      console.error('Error calculating bet:', error);
-      setMessage(error.message || 'Error calculating bet');
-    } finally {
-      setCalculating(false);
-    }
-  }
-
-  async function submitBet() {
-    const calc = betCalculation();
-    if (!calc || !selectedGame()) {
-      setMessage('Please calculate bet first');
-      return;
-    }
-
     setSubmitting(true);
+    setMessage('');
+    
     try {
       const game = selectedGame();
-      const calc = betCalculation();
-      const betData = {
-        game_id: String(game.game_id || game.gameId),
-        home_team: game.home_team_name || game.homeTeam?.teamName,
-        away_team: game.visitor_team_name || game.away_team_name || game.awayTeam?.teamName,
-        home_team_id: game.home_team_id || game.homeTeam?.teamId,
-        away_team_id: game.away_team_id || game.awayTeam?.teamId,
-        team_selected: teamSelected(),
-        bet_type: 'Point Spread', // Always Point Spread
-        spread: spread() ?? undefined,
-        american_odds: parseFloat(americanOdds()),
-        bet_amount: riskAmount() as number, // Use the risk amount as bet amount
-        risk_percent: calc?.risk_percent // Include calculated risk percent
-      };
-
-      const result = await betInputApi.createBet(betData);
       
-      if (result.success && result.bet) {
-        setMessage('Bet placed successfully! Saved as pending.');
-        setBalance(result.balance || balance());
+      // Calculate bet details and place bet in one step
+      const [calcResult, betResult] = await Promise.all([
+        betInputApi.calculateBetFromAmount(odds, amount, balance()).catch(() => null),
+        betInputApi.createBet({
+          game_id: String(game.game_id || game.gameId),
+          home_team: game.home_team_name || game.homeTeam?.teamName,
+          away_team: game.visitor_team_name || game.away_team_name || game.awayTeam?.teamName,
+          home_team_id: game.home_team_id || game.homeTeam?.teamId,
+          away_team_id: game.away_team_id || game.awayTeam?.teamId,
+          team_selected: teamSelected(),
+          bet_type: 'Point Spread',
+          spread: spread() ?? undefined,
+          american_odds: odds,
+          bet_amount: amount
+        })
+      ]);
+      
+      // Show calculation results if available
+      if (calcResult) {
+        setBetCalculation(calcResult);
+      }
+      
+      if (betResult.success && betResult.bet) {
+        setMessage('✅ Bet placed successfully! Saved as pending.');
+        setBalance(betResult.balance || balance());
         
-        // Reset form and navigate to Portfolio to show new bet
+        // Navigate to Portfolio after short delay
         setTimeout(() => {
           navigate('/portfolio');
-        }, 1500);
+        }, 1000);
       } else {
         throw new Error('Bet was not created successfully');
       }
@@ -307,51 +294,43 @@ export default function BetInput() {
             </small>
           </div>
 
-          <button 
-            class="calculate-button"
-            onclick={calculateBet}
-            disabled={calculating()}
-          >
-            {calculating() ? 'Calculating...' : 'Calculate Bet'}
-          </button>
-
-          <Show when={betCalculation()}>
-            <div class="bet-calculation">
-              <h3>Bet Summary</h3>
-              <div class="calc-row">
-                <span>Bet Amount:</span>
-                <strong>${betCalculation()?.bet_amount?.toFixed(2)}</strong>
-              </div>
-              <div class="calc-row">
-                <span>Payout if Wins:</span>
-                <strong>${betCalculation()?.payout?.toFixed(2)}</strong>
-              </div>
-              <div class="calc-row">
-                <span>Profit:</span>
-                <strong>${betCalculation()?.profit?.toFixed(2)}</strong>
-              </div>
-              <div class="calc-row">
-                <span>ROI:</span>
-                <strong>{betCalculation()?.roi?.toFixed(2)}%</strong>
-              </div>
-              <div class="calc-row">
-                <span>Win Probability:</span>
-                <strong>{(betCalculation()?.win_probability_percent || 0).toFixed(2)}%</strong>
-              </div>
-              <div class="calc-row">
-                <span>Risk % (Kelly):</span>
-                <strong>{(betCalculation()?.risk_percent || 0).toFixed(2)}%</strong>
-              </div>
-
               <button 
                 class="submit-button"
                 onclick={submitBet}
-                disabled={submitting()}
+                disabled={submitting() || !selectedGame() || spread() === null || !americanOdds() || riskAmount() === null}
               >
                 {submitting() ? 'Placing Bet...' : 'Place Bet'}
               </button>
-            </div>
-          </Show>
+
+              <Show when={betCalculation()}>
+                <div class="bet-calculation">
+                  <h3>Bet Summary</h3>
+                  <div class="calc-row">
+                    <span>Bet Amount:</span>
+                    <strong>${betCalculation()?.bet_amount?.toFixed(2)}</strong>
+                  </div>
+                  <div class="calc-row">
+                    <span>Payout if Wins:</span>
+                    <strong>${betCalculation()?.payout?.toFixed(2)}</strong>
+                  </div>
+                  <div class="calc-row">
+                    <span>Profit:</span>
+                    <strong>${betCalculation()?.profit?.toFixed(2)}</strong>
+                  </div>
+                  <div class="calc-row">
+                    <span>ROI:</span>
+                    <strong>{betCalculation()?.roi?.toFixed(2)}%</strong>
+                  </div>
+                  <div class="calc-row">
+                    <span>Win Probability:</span>
+                    <strong>{(betCalculation()?.win_probability_percent || 0).toFixed(2)}%</strong>
+                  </div>
+                  <div class="calc-row">
+                    <span>Risk % (Kelly):</span>
+                    <strong>{(betCalculation()?.risk_percent || 0).toFixed(2)}%</strong>
+                  </div>
+                </div>
+              </Show>
         </Show>
       </div>
     </div>

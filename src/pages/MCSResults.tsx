@@ -19,6 +19,8 @@ export default function MCSResults() {
     end_time: string | null;
   } | null>(null);
   const [showLogs, setShowLogs] = createSignal(false);
+  const [fullDataCache, setFullDataCache] = createSignal<Map<string, any>>(new Map());
+  const [loadingFullData, setLoadingFullData] = createSignal<Set<string>>(new Set());
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -634,9 +636,50 @@ export default function MCSResults() {
                       </div>
                     </Show>
 
-                    <details class="full-data">
+                    <details 
+                      class="full-data"
+                      onToggle={(e) => {
+                        const isOpen = e.currentTarget.open;
+                        const fileKey = `${file.name}`;
+                        
+                        if (isOpen && !fullDataCache().has(fileKey) && !loadingFullData().has(fileKey)) {
+                          // Fetch full data when expanded
+                          setLoadingFullData(new Set([...loadingFullData(), fileKey]));
+                          
+                          const filePath = file.path || file.name;
+                          const filename = filePath.split('/').pop() || filePath;
+                          
+                          data1Api.getGamePrediction(selectedDate(), filename)
+                            .then((fullData) => {
+                              const cache = new Map(fullDataCache());
+                              cache.set(fileKey, fullData);
+                              setFullDataCache(cache);
+                              setLoadingFullData(new Set([...loadingFullData()].filter(k => k !== fileKey)));
+                            })
+                            .catch((err) => {
+                              console.error('Error fetching full data:', err);
+                              setLoadingFullData(new Set([...loadingFullData()].filter(k => k !== fileKey)));
+                              // Fallback to showing metadata
+                              const cache = new Map(fullDataCache());
+                              cache.set(fileKey, file.data);
+                              setFullDataCache(cache);
+                            });
+                        }
+                      }}
+                    >
                       <summary>View Full Data</summary>
-                      <pre>{JSON.stringify(file.data, null, 2)}</pre>
+                      <Show 
+                        when={fullDataCache().has(file.name) || file.data}
+                        fallback={
+                          <div style="padding: 20px; text-align: center; color: #888;">
+                            {loadingFullData().has(file.name) ? 'Loading full data...' : 'Click to load full data'}
+                          </div>
+                        }
+                      >
+                        <pre style="max-height: 500px; overflow: auto; background: #1e1e1e; padding: 15px; border-radius: 4px;">
+                          {JSON.stringify(fullDataCache().get(file.name) || file.data, null, 2)}
+                        </pre>
+                      </Show>
                     </details>
                   </div>
                 );

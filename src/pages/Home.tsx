@@ -20,21 +20,30 @@ export default function Home() {
   async function loadData() {
     try {
       setLoading(true);
-      const [nbaGames, shap] = await Promise.all([
-        nbaApi.getAllGames().catch(err => {
-          console.error('NBA API error:', err);
-          return [];
-        }),
-        shapApi.getPredictions().catch(err => {
-          console.error('SHAP API error:', err);
-          return [];
-        })
-      ]);
+      
+      // Load NBA games first (critical) - show immediately
+      const nbaGamesPromise = nbaApi.getAllGames().catch(err => {
+        console.error('NBA API error:', err);
+        return [];
+      });
+      
+      // Load SHAP in parallel but don't block UI
+      const shapPromise = shapApi.getPredictions().catch(err => {
+        console.warn('SHAP API error (non-critical):', err);
+        return [];
+      });
+      
+      // Show games as soon as they load (don't wait for SHAP)
+      const nbaGames = await nbaGamesPromise;
       setGames(nbaGames || []);
-      setShapPredictions(shap || []);
+      setLoading(false); // Show UI immediately
+      
+      // Set SHAP when it arrives (non-blocking)
+      shapPromise.then(shap => {
+        setShapPredictions(shap || []);
+      });
     } catch (error) {
       console.error('Error loading data:', error);
-    } finally {
       setLoading(false);
     }
   }

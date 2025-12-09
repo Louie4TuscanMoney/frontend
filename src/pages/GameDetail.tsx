@@ -18,37 +18,31 @@ export default function GameDetail() {
   let interval: number;
 
   onMount(async () => {
-    // Set a shorter timeout for faster feedback
+    // Set a shorter timeout to ensure loading always resolves
     const timeoutId = setTimeout(() => {
       if (loading()) {
-        console.warn('Game loading timeout - showing partial data');
+        console.warn('Game loading timeout - showing error state');
+        setError('Game data is taking longer than expected. Please try refreshing.');
         setLoading(false);
       }
     }, 5000); // 5 second timeout (reduced from 10)
 
     try {
-      // Load game and SHAP in parallel for faster display
-      const gamePromise = loadGame();
-      const shapPromise = loadSHAP();
+      // Load game data first (critical) - show UI immediately when available
+      await loadGame();
+      setLoading(false); // Show UI as soon as game data loads
       
-      // Wait for game data (required) but don't block on SHAP
-      await gamePromise;
-      
-      // SHAP loads in background (optional)
-      shapPromise.catch(err => {
-        console.warn('SHAP data loading in background:', err);
-      });
-      
-      // Load additional data in parallel (non-blocking)
+      // Load additional data in background (don't block UI)
       loadAdditionalData().catch(err => {
         console.error('Error loading additional data:', err);
+        // Don't set error - these are optional features
       });
     } catch (err) {
       console.error('Error in onMount:', err);
       setError('Failed to load game. Please try again.');
+      setLoading(false);
     } finally {
       clearTimeout(timeoutId);
-      setLoading(false);
     }
 
     // Refresh every 5 seconds for live games
@@ -68,47 +62,66 @@ export default function GameDetail() {
   async function loadGame() {
     try {
       setError(null);
-      const gameData = await nbaApi.getGameById(params.gameId);
       
+      // Load game data first (critical) - don't wait for SHAP
+      const gamePromise = nbaApi.getGameById(params.gameId);
+      
+      // Load SHAP in parallel but don't block on it
+      const shapPromise = shapApi.getPredictionForGame(params.gameId).catch(err => {
+        console.warn('SHAP prediction not available:', err);
+        return null;
+      });
+      
+      // Set game data immediately when available (don't wait for SHAP)
+      const gameData = await Promise.race([
+        gamePromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
+      ]) as NBAGame | null;
+
       if (!gameData) {
         setError('Game not found. It may have been removed or the game ID is invalid.');
-      } else {
-        setGame(gameData);
+        return;
       }
+      
+      // Set game immediately - UI shows right away
+      setGame(gameData);
+      
+      // Set SHAP when it arrives (non-blocking)
+      shapPromise.then(shapData => {
+        if (shapData) {
+          setShap(shapData);
+        }
+      }).catch(() => {
+        // Silent fail - SHAP is optional
+      });
+      
     } catch (error) {
       console.error('Error loading game:', error);
       setError('Failed to load game data. Please check your connection and try again.');
     }
   }
 
-  async function loadSHAP() {
-    try {
-      const shapData = await shapApi.getPredictionForGame(params.gameId);
-      setShap(shapData);
-    } catch (error) {
-      console.error('Error loading SHAP prediction:', error);
-      // Don't set error - SHAP is optional
-    }
-  }
-
   async function loadAdditionalData() {
     try {
-      // Load all additional data in parallel (non-blocking)
-      const [rostersData, recordsData, playByPlayData] = await Promise.allSettled([
-        nbaApi.getGameRosters(params.gameId),
-        nbaApi.getGameRecords(params.gameId),
+      // Load additional data in parallel with shorter timeout
+      const timeout = 5000; // 5 second timeout (reduced from 8)
+      
+      // Load records first (fastest, most useful)
+      nbaApi.getGameRecords(params.gameId)
+        .then(data => setRecords(data))
+        .catch(() => {}); // Silent fail
+      
+      // Load rosters (can be slower)
+      nbaApi.getGameRosters(params.gameId)
+        .then(data => setRosters(data))
+        .catch(() => {}); // Silent fail
+      
+      // Load play-by-play only if game is live
+      const currentGame = game();
+      if (currentGame && currentGame.gameStatusText !== 'Scheduled' && currentGame.gameStatusText !== 'Final') {
         nbaApi.getPlayByPlay(params.gameId)
-      ]);
-
-      // Set data as it becomes available
-      if (rostersData.status === 'fulfilled' && rostersData.value) {
-        setRosters(rostersData.value);
-      }
-      if (recordsData.status === 'fulfilled' && recordsData.value) {
-        setRecords(recordsData.value);
-      }
-      if (playByPlayData.status === 'fulfilled' && playByPlayData.value) {
-        setPlayByPlay(playByPlayData.value);
+          .then(data => setPlayByPlay(data))
+          .catch(() => {}); // Silent fail
       }
     } catch (error) {
       console.error('Error loading additional data:', error);
@@ -129,20 +142,19 @@ export default function GameDetail() {
     navigate(`/bet/${params.gameId}`);
   }
 
-  const currentGame = game();
-  const errorMessage = error();
-  const isLoading = loading();
-  
-  // Show game data immediately if available, even if still loading additional data
-  if (isLoading && !currentGame) {
+  if (loading()) {
     return (
       <div class="game-detail loading">
         <div class="loading-spinner"></div>
         <p>Loading game data...</p>
+        <small>This may take a few seconds</small>
       </div>
     );
   }
 
+  const currentGame = game();
+  const errorMessage = error();
+  
   if (errorMessage || !currentGame) {
     return (
       <div class="game-detail error-state">
@@ -256,23 +268,13 @@ export default function GameDetail() {
       </div>
 
       <Show when={activeTab() === 'overview'}>
-        <Show when={isLoading() && !shapData()} fallback={null}>
-          <div class="shap-section">
-            <h3>SHAP Predictions</h3>
-            <div class="shap-loading">
-              <div class="loading-spinner-small"></div>
-              <span>Loading predictions...</span>
-            </div>
-          </div>
-        </Show>
-        
-        <Show when={shapData()}>
+        {shapData && (
           <div class="shap-section">
             <h3>SHAP Predictions</h3>
             <div class="shap-data-container">
-              {shapData()?.prediction && typeof shapData()?.prediction === 'object' ? (
+              {shapData.prediction && typeof shapData.prediction === 'object' ? (
                 <div class="shap-data-grid">
-                  {Object.entries(shapData()!.prediction).map(([key, value]) => (
+                  {Object.entries(shapData.prediction).map(([key, value]) => (
                     <div class="shap-data-item">
                       <span class="shap-key">{key}:</span>
                       <span class="shap-value">{String(value)}</span>
@@ -280,11 +282,11 @@ export default function GameDetail() {
                   ))}
                 </div>
               ) : (
-                <pre class="shap-data">{JSON.stringify(shapData()?.prediction, null, 2)}</pre>
+                <pre class="shap-data">{JSON.stringify(shapData.prediction, null, 2)}</pre>
               )}
             </div>
           </div>
-        </Show>
+        )}
 
         <div class="game-actions">
           <button class="bet-button-large" onclick={handlePlaceBet}>

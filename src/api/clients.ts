@@ -153,7 +153,7 @@ export const nbaApi = {
   async getGameById(gameId: string): Promise<NBAGame | null> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (reduced from 8)
       
       const response = await fetch(`${NBA_API_URL}/games/${gameId}`, {
         method: 'GET',
@@ -161,7 +161,8 @@ export const nbaApi = {
           'Accept': 'application/json',
         },
         mode: 'cors',
-        signal: controller.signal
+        signal: controller.signal,
+        cache: 'no-cache' // Ensure fresh data
       });
       
       clearTimeout(timeoutId);
@@ -271,31 +272,6 @@ export const shapApi = {
 
   async getPredictionForGame(gameId: string): Promise<SHAPPrediction | null> {
     try {
-      // Try direct endpoint first (faster if available)
-      const directUrl = `${SHAP_API_URL}/api/predictions/${gameId}`;
-      try {
-        const response = await fetch(directUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-          mode: 'cors'
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Handle both single prediction and array response
-          if (Array.isArray(data)) {
-            return data[0] || null;
-          }
-          return data.prediction || data || null;
-        }
-      } catch (directError) {
-        // Fall back to fetching all predictions
-        console.warn('Direct SHAP endpoint not available, fetching all predictions');
-      }
-      
-      // Fallback: fetch all predictions and filter
       const predictions = await this.getPredictions();
       return predictions.find(p => 
         String(p.game_id) === String(gameId) || 

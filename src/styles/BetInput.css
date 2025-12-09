@@ -141,29 +141,29 @@
   flex: 1;
 }
 
-.submit-button {
+.calculate-button {
   width: 100%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  padding: 1.5rem;
+  padding: 1.25rem;
   border-radius: 12px;
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-size: 1.2rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
-.submit-button:hover:not(:disabled) {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+.calculate-button:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
 }
 
-.submit-button:disabled {
+.calculate-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;

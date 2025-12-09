@@ -35,12 +35,24 @@ const BETINPUT_API_URL = ensureHttps(
   (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app')
 );
 
+const DATA_API_URL = ensureHttps(
+  import.meta.env.VITE_DATA_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:8001' : 'https://data1-production.up.railway.app')
+);
+
+const MCS_API_URL = ensureHttps(
+  import.meta.env.VITE_MCS_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:8003' : 'https://mcs1-production.up.railway.app')
+);
+
 // Log API URLs (only in development)
 if (import.meta.env.DEV) {
   console.log('🌐 Frontend API Configuration:');
   console.log('   NBA API:', NBA_API_URL);
   console.log('   SHAP API:', SHAP_API_URL);
   console.log('   BetInput API:', BETINPUT_API_URL);
+  console.log('   Data API:', DATA_API_URL);
+  console.log('   MCS API:', MCS_API_URL);
 }
 
 // Types
@@ -560,6 +572,167 @@ export const betInputApi = {
           sharpe_ratio: { day: 0, week: 0, overall: 0 }
         }
       };
+    }
+  }
+};
+
+// Data1 API Client - Access @DailyMCS, @DailyOdds, @DailyResults
+export interface DailyMCSFile {
+  name: string;
+  path: string;
+  data: any; // Full prediction data
+}
+
+export interface DailyData {
+  folder: string;
+  date: string;
+  files: DailyMCSFile[];
+  count: number;
+}
+
+export const data1Api = {
+  /**
+   * Get all MCS predictions for a date
+   */
+  async getDailyMCS(date: string): Promise<DailyData> {
+    try {
+      const response = await fetch(`${DATA_API_URL}/api/daily/DailyMCS/${date}`, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch DailyMCS: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('Data1 API error (getDailyMCS):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all odds for a date
+   */
+  async getDailyOdds(date: string): Promise<DailyData> {
+    try {
+      const response = await fetch(`${DATA_API_URL}/api/daily/DailyOdds/${date}`, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch DailyOdds: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('Data1 API error (getDailyOdds):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all results for a date
+   */
+  async getDailyResults(date: string): Promise<DailyData> {
+    try {
+      const response = await fetch(`${DATA_API_URL}/api/daily/DailyResults/${date}`, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch DailyResults: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('Data1 API error (getDailyResults):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get specific game prediction file
+   */
+  async getGamePrediction(date: string, filename: string): Promise<any> {
+    try {
+      const response = await fetch(`${DATA_API_URL}/api/daily/DailyMCS/${date}/${filename}`, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch prediction: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data.data; // Return the actual prediction data
+    } catch (error: any) {
+      console.error('Data1 API error (getGamePrediction):', error);
+      throw error;
+    }
+  }
+};
+
+// MCS1 API Client - Control Master.py
+export const mcs1Api = {
+  /**
+   * Manually trigger Master.py execution
+   */
+  async triggerMasterPy(): Promise<{ status: string; message: string; timestamp: string }> {
+    try {
+      const response = await fetch(`${MCS_API_URL}/api/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('MCS1 API error (triggerMasterPy):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Check if Master.py is currently running
+   */
+  async getRunStatus(): Promise<{ running: boolean; timestamp: string }> {
+    try {
+      const response = await fetch(`${MCS_API_URL}/api/run/status`, {
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('MCS1 API error (getRunStatus):', error);
+      return { running: false, timestamp: new Date().toISOString() };
+    }
+  },
+
+  /**
+   * Get predictions for a date (reads from data1)
+   */
+  async getPredictions(date: string): Promise<any> {
+    try {
+      const response = await fetch(`${MCS_API_URL}/api/predictions/${date}`, {
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-cache'
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      console.error('MCS1 API error (getPredictions):', error);
+      throw error;
     }
   }
 };

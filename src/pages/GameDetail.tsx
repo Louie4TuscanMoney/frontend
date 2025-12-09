@@ -269,16 +269,16 @@ export default function GameDetail() {
       <Show when={activeTab() === 'overview'}>
         <div class="shap-section">
           <h3>SHAP Predictions</h3>
-          <Show when={shapData()} fallback={
+          <Show when={shapData} fallback={
             <div class="shap-loading">
               <div class="shap-loading-spinner"></div>
               <p>Loading SHAP predictions...</p>
             </div>
           }>
             <div class="shap-data-container">
-              {shapData()?.prediction && typeof shapData()?.prediction === 'object' ? (
+              {shapData?.prediction && typeof shapData.prediction === 'object' ? (
                 <div class="shap-data-grid">
-                  {Object.entries(shapData()!.prediction).map(([key, value]) => (
+                  {Object.entries(shapData.prediction).map(([key, value]) => (
                     <div class="shap-data-item">
                       <span class="shap-key">{key}:</span>
                       <span class="shap-value">{String(value)}</span>
@@ -286,7 +286,7 @@ export default function GameDetail() {
                   ))}
                 </div>
               ) : (
-                <pre class="shap-data">{JSON.stringify(shapData()?.prediction, null, 2)}</pre>
+                <pre class="shap-data">{JSON.stringify(shapData?.prediction, null, 2)}</pre>
               )}
             </div>
           </Show>

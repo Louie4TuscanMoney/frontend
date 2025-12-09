@@ -21,6 +21,7 @@ export default function MCSResults() {
   const [showLogs, setShowLogs] = createSignal(false);
   const [fullDataCache, setFullDataCache] = createSignal<Map<string, any>>(new Map());
   const [loadingFullData, setLoadingFullData] = createSignal<Set<string>>(new Set());
+  const [gameResults, setGameResults] = createSignal<Map<number, any>>(new Map()); // game_id -> result data
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -97,6 +98,25 @@ export default function MCSResults() {
       
       setPredictions(data.files || []);
       console.log(`[MCS_RESULTS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Predictions state updated with ${fileCount} files`);
+      
+      // Load game results for concluded games
+      try {
+        const resultsData = await data1Api.getDailyResults(date);
+        const resultsMap = new Map<number, any>();
+        if (resultsData.files && resultsData.files.length > 0) {
+          resultsData.files.forEach((file: any) => {
+            const gameId = file.data?.game_id;
+            if (gameId && file.data?.game_status === 'Final' && file.data?.final_game) {
+              resultsMap.set(parseInt(gameId.toString()), file.data);
+            }
+          });
+          console.log(`[MCS_RESULTS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Loaded ${resultsMap.size} game results`);
+        }
+        setGameResults(resultsMap);
+      } catch (err) {
+        console.warn(`[MCS_RESULTS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Could not load game results:`, err);
+        // Don't fail the whole page if results can't be loaded
+      }
       
       // Group and filter files
       const groupedStart = performance.now();
@@ -605,12 +625,63 @@ export default function MCSResults() {
                       <div class="prob-row">
                         <span class="team-name">{gameInfo.awayTeam}</span>
                         <span class="probability">{(awayWinProb * 100).toFixed(1)}%</span>
+                        <Show when={gameInfo.gameId && gameResults().has(parseInt(gameInfo.gameId.toString()))}>
+                          {(() => {
+                            const result = gameResults().get(parseInt(gameInfo.gameId.toString()));
+                            const finalScore = result?.final_game?.final_score;
+                            const actualWinner = result?.final_game?.actual_winner;
+                            const isAwayWinner = actualWinner === 'away';
+                            const awayScore = finalScore?.away;
+                            const homeScore = finalScore?.home;
+                            return (
+                              <span class={`result-badge ${isAwayWinner ? 'winner' : ''}`} style="margin-left: 10px; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; background: #333; color: #fff;">
+                                {awayScore !== undefined && homeScore !== undefined ? `${awayScore}` : ''}
+                                {isAwayWinner && ' ✓'}
+                              </span>
+                            );
+                          })()}
+                        </Show>
                       </div>
                       <div class="prob-row">
                         <span class="team-name">{gameInfo.homeTeam}</span>
                         <span class="probability">{(homeWinProb * 100).toFixed(1)}%</span>
+                        <Show when={gameInfo.gameId && gameResults().has(parseInt(gameInfo.gameId.toString()))}>
+                          {(() => {
+                            const result = gameResults().get(parseInt(gameInfo.gameId.toString()));
+                            const finalScore = result?.final_game?.final_score;
+                            const actualWinner = result?.final_game?.actual_winner;
+                            const isHomeWinner = actualWinner === 'home';
+                            const awayScore = finalScore?.away;
+                            const homeScore = finalScore?.home;
+                            return (
+                              <span class={`result-badge ${isHomeWinner ? 'winner' : ''}`} style="margin-left: 10px; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; background: #333; color: #fff;">
+                                {awayScore !== undefined && homeScore !== undefined ? `${homeScore}` : ''}
+                                {isHomeWinner && ' ✓'}
+                              </span>
+                            );
+                          })()}
+                        </Show>
                       </div>
                     </div>
+                    
+                    <Show when={gameInfo.gameId && gameResults().has(parseInt(gameInfo.gameId.toString()))}>
+                      {(() => {
+                        const result = gameResults().get(parseInt(gameInfo.gameId.toString()));
+                        const finalScore = result?.final_game?.final_score;
+                        const actualWinner = result?.final_game?.actual_winner;
+                        const winnerName = actualWinner === 'away' ? gameInfo.awayTeam : actualWinner === 'home' ? gameInfo.homeTeam : null;
+                        return (
+                          <div class="game-result" style="margin-top: 10px; padding: 8px; background: #1a1a1a; border-radius: 4px; border-left: 3px solid #4caf50;">
+                            <strong style="color: #4caf50;">Winner: {winnerName}</strong>
+                            {finalScore?.away !== undefined && finalScore?.home !== undefined && (
+                              <span style="margin-left: 10px; color: #888;">
+                                {gameInfo.awayTeam} {finalScore.away} - {finalScore.home} {gameInfo.homeTeam}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </Show>
 
                     <Show when={file.data?.spread_odds_comparison}>
                       <div class="spread-info">

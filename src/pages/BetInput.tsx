@@ -123,13 +123,18 @@ export default function BetInput() {
       };
 
       const result = await betInputApi.createBet(betData);
-      setMessage('Bet placed successfully!');
-      setBalance(result.balance || balance());
       
-      // Reset form and navigate to Portfolio to show new bet
-      setTimeout(() => {
-        navigate('/portfolio');
-      }, 1500);
+      if (result.success && result.bet) {
+        setMessage('Bet placed successfully! Saved as pending.');
+        setBalance(result.balance || balance());
+        
+        // Reset form and navigate to Portfolio to show new bet
+        setTimeout(() => {
+          navigate('/portfolio');
+        }, 1500);
+      } else {
+        throw new Error('Bet was not created successfully');
+      }
     } catch (error: any) {
       console.error('Error placing bet:', error);
       setMessage(error.message || 'Error placing bet');

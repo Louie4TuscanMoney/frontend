@@ -356,15 +356,20 @@ export const betInputApi = {
       const response = await fetch(`${BETINPUT_API_URL}/api/bets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
         body: JSON.stringify(betData)
       });
+      
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         throw new Error(error.error || `HTTP ${response.status}`);
       }
-      return await response.json();
+      
+      const result = await response.json();
+      console.log('✅ Bet created successfully:', result);
+      return result;
     } catch (error) {
-      console.error('BetInput API error (createBet):', error);
+      console.error('❌ BetInput API error (createBet):', error);
       throw error;
     }
   },

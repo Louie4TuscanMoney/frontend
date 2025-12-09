@@ -30,6 +30,27 @@ export default function Portfolio() {
     try {
       setLoading(true);
       
+      // Auto-resolve pending bets FIRST (before loading portfolio)
+      try {
+        const betInputUrl = import.meta.env.VITE_BETINPUT_API_URL || 
+          (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
+        // Ensure https:// protocol
+        const url = betInputUrl.startsWith('http') ? betInputUrl : `https://${betInputUrl}`;
+        const resolveResponse = await fetch(`${url}/api/bets/resolve-all`, {
+          method: 'POST',
+          mode: 'cors'
+        });
+        if (resolveResponse.ok) {
+          const resolveData = await resolveResponse.json();
+          if (resolveData.resolved_count > 0) {
+            console.log(`✅ Auto-resolved ${resolveData.resolved_count} pending bets`);
+          }
+        }
+      } catch (e) {
+        // Silent fail - resolution happens in background
+        console.warn('Could not auto-resolve bets:', e);
+      }
+      
       // Get portfolio data (includes bet_history, statistics, balance)
       const portfolioData = await betInputApi.getPortfolio();
       setPortfolio(portfolioData);
@@ -38,22 +59,13 @@ export default function Portfolio() {
       const bets = portfolioData?.bet_history || [];
       setBetHistory(bets);
       
-      console.log(`📊 Portfolio loaded: ${bets.length} bets, balance: $${portfolioData?.balance || 0}`);
+      // Count pending bets
+      const pendingCount = bets.filter(b => {
+        const status = (b.status || b.result || '').toLowerCase();
+        return status === 'pending';
+      }).length;
       
-      // Auto-resolve pending bets in background
-      try {
-        const betInputUrl = import.meta.env.VITE_BETINPUT_API_URL || 
-          (import.meta.env.DEV ? 'http://localhost:8002' : 'https://betinput-production.up.railway.app');
-        // Ensure https:// protocol
-        const url = betInputUrl.startsWith('http') ? betInputUrl : `https://${betInputUrl}`;
-        await fetch(`${url}/api/bets/resolve-all`, {
-          method: 'POST',
-          mode: 'cors'
-        });
-      } catch (e) {
-        // Silent fail - resolution happens in background
-        console.warn('Could not auto-resolve bets:', e);
-      }
+      console.log(`📊 Portfolio loaded: ${bets.length} total bets (${pendingCount} pending), balance: $${portfolioData?.balance || 0}`);
     } catch (error) {
       console.error('❌ Error loading portfolio:', error);
     } finally {

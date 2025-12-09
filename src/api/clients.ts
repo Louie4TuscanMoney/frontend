@@ -397,7 +397,7 @@ export const betInputApi = {
   async getBets(status?: string) {
     try {
       const url = status ? `${BETINPUT_API_URL}/api/bets?status=${status}` : `${BETINPUT_API_URL}/api/bets`;
-      console.log('📊 Fetching bets from:', url);
+      // Fetch bets
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -426,7 +426,7 @@ export const betInputApi = {
   async getPortfolio() {
     try {
       const url = `${BETINPUT_API_URL}/api/portfolio`;
-      console.log('📊 Fetching portfolio from:', url);
+      // Fetch portfolio
       
       const response = await fetch(url, {
         method: 'GET',

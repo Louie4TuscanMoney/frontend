@@ -257,7 +257,7 @@ export const shapApi = {
   async getPredictions(): Promise<SHAPPrediction[]> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout (reduced from 3)
       
       // SHAP API uses /api/predictions endpoint (not /api/predictions/live)
       const response = await fetch(`${SHAP_API_URL}/api/predictions`, {

@@ -89,31 +89,32 @@ export default function BetInput() {
     try {
       const game = selectedGame();
       
-      // Calculate bet details and place bet in one step
-      const [calcResult, betResult] = await Promise.all([
-        betInputApi.calculateBetFromAmount(odds, amount, balance()).catch(() => null),
-        betInputApi.createBet({
-          game_id: String(game.game_id || game.gameId),
-          home_team: game.home_team_name || game.homeTeam?.teamName,
-          away_team: game.visitor_team_name || game.away_team_name || game.awayTeam?.teamName,
-          home_team_id: game.home_team_id || game.homeTeam?.teamId,
-          away_team_id: game.away_team_id || game.awayTeam?.teamId,
-          team_selected: teamSelected(),
-          bet_type: 'Point Spread',
-          spread: spread() ?? undefined,
-          american_odds: odds,
-          bet_amount: amount
-        })
-      ]);
-      
-      // Show calculation results if available
-      if (calcResult) {
-        setBetCalculation(calcResult);
-      }
+      // Place bet first (fast)
+      const betResult = await betInputApi.createBet({
+        game_id: String(game.game_id || game.gameId),
+        home_team: game.home_team_name || game.homeTeam?.teamName,
+        away_team: game.visitor_team_name || game.away_team_name || game.awayTeam?.teamName,
+        home_team_id: game.home_team_id || game.homeTeam?.teamId,
+        away_team_id: game.away_team_id || game.awayTeam?.teamId,
+        team_selected: teamSelected(),
+        bet_type: 'Point Spread',
+        spread: spread() ?? undefined,
+        american_odds: odds,
+        bet_amount: amount
+      });
       
       if (betResult.success && betResult.bet) {
         setMessage('✅ Bet placed successfully! Saved as pending.');
         setBalance(betResult.balance || balance());
+        
+        // Calculate and show bet details after placing (for reference)
+        try {
+          const calcResult = await betInputApi.calculateBetFromAmount(odds, amount, balance());
+          setBetCalculation(calcResult);
+        } catch (calcError) {
+          console.warn('Could not calculate bet details:', calcError);
+          // Don't fail the bet placement if calculation fails
+        }
         
         // Navigate to Portfolio after short delay
         setTimeout(() => {

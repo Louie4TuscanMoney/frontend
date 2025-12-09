@@ -95,14 +95,20 @@ export const nbaApi = {
   async getAllGames(): Promise<NBAGame[]> {
     try {
       const url = `${NBA_API_URL}/games`;
-      console.log('Fetching games from:', url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
-        mode: 'cors'
+        mode: 'cors',
+        signal: controller.signal,
+        cache: 'no-cache' // Ensure fresh data
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -111,17 +117,18 @@ export const nbaApi = {
       }
       
       const data = await response.json();
-      console.log('NBA API response:', data);
       
       // Handle both formats: {games: [...]} and direct array
       if (Array.isArray(data)) {
         return data;
       }
       return data.games || data.all_games || [];
-    } catch (error) {
-      console.error('NBA API connection error:', error);
-      console.error(`NBA API URL: ${NBA_API_URL}/games`);
-      console.error('Error details:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('NBA API timeout - games may not be available');
+      } else {
+        console.error('NBA API connection error:', error);
+      }
       return [];
     }
   },
@@ -249,13 +256,22 @@ export const nbaApi = {
 export const shapApi = {
   async getPredictions(): Promise<SHAPPrediction[]> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
       // SHAP API uses /api/predictions endpoint (not /api/predictions/live)
       const response = await fetch(`${SHAP_API_URL}/api/predictions`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-        }
+        },
+        mode: 'cors',
+        signal: controller.signal,
+        cache: 'no-cache' // Ensure fresh data
       });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         console.warn(`SHAP API returned ${response.status}: ${response.statusText}`);
         return [];
@@ -263,9 +279,12 @@ export const shapApi = {
       const data = await response.json();
       // SHAP API returns { predictions: [], total: 0 } format
       return data.predictions || [];
-    } catch (error) {
-      console.error('SHAP API connection error:', error);
-      console.error(`SHAP API URL: ${SHAP_API_URL}/api/predictions`);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('SHAP API timeout - predictions may not be available');
+      } else {
+        console.error('SHAP API connection error:', error);
+      }
       return [];
     }
   },

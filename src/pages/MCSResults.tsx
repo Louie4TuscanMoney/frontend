@@ -64,17 +64,39 @@ export default function MCSResults() {
 
   async function handleTriggerMasterPy() {
     try {
-      setRunStatus('Starting Master.py...');
+      const today = getTodayDate();
+      setRunStatus(`Starting Master.py for today (${today})...`);
       const result = await mcs1Api.triggerMasterPy();
       setRunStatus(result.message || 'Master.py started successfully');
       setRunning(true);
       
+      // Poll for completion and show logs
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await mcs1Api.getRunStatus();
+          if (!status.running) {
+            clearInterval(pollInterval);
+            setRunStatus('Master.py completed! Loading results...');
+            setRunning(false);
+            // Load today's predictions after completion
+            loadPredictions(today);
+            // Also refresh selected date if it's today
+            if (selectedDate() === today) {
+              loadPredictions(today);
+            }
+          }
+        } catch (err) {
+          console.warn('Error checking status:', err);
+        }
+      }, 5000); // Check every 5 seconds
+      
       // Refresh predictions after a delay (Master.py takes time)
       setTimeout(() => {
-        loadPredictions(selectedDate());
+        loadPredictions(today);
       }, 30000); // Refresh after 30 seconds
     } catch (err: any) {
       setRunStatus(`Error: ${err.message || 'Failed to trigger Master.py'}`);
+      setRunning(false);
       console.error('Error triggering Master.py:', err);
     }
   }
@@ -85,7 +107,9 @@ export default function MCSResults() {
   }
 
   function formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
+    // Parse YYYY-MM-DD format correctly (don't use Date constructor which can be timezone-sensitive)
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 

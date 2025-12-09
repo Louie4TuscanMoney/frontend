@@ -9,6 +9,16 @@ export default function MCSResults() {
   const [running, setRunning] = createSignal(false);
   const [runStatus, setRunStatus] = createSignal<string>('');
   const [selectedDate, setSelectedDate] = createSignal<string>('');
+  const [masterLogs, setMasterLogs] = createSignal<{
+    stdout: string;
+    stderr: string;
+    returncode: number | null;
+    status: string;
+    error: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  } | null>(null);
+  const [showLogs, setShowLogs] = createSignal(false);
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -140,6 +150,39 @@ export default function MCSResults() {
     }
   }
 
+  async function fetchMasterLogs() {
+    const requestId = `logs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = performance.now();
+    
+    console.log(`[FETCH_LOGS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Fetching Master.py logs`);
+    
+    try {
+      const logs = await mcs1Api.getRunLogs();
+      const elapsed = performance.now() - startTime;
+      
+      console.log(`[FETCH_LOGS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Logs fetched in ${elapsed.toFixed(0)}ms:`, {
+        status: logs.status,
+        returncode: logs.returncode,
+        stdoutLength: logs.stdout?.length || 0,
+        stderrLength: logs.stderr?.length || 0
+      });
+      
+      setMasterLogs(logs);
+      
+      // Show logs if there's an error
+      if (logs.status === 'failed' || logs.returncode !== 0) {
+        setShowLogs(true);
+      }
+    } catch (err: any) {
+      const elapsed = performance.now() - startTime;
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Could not fetch logs after ${elapsed.toFixed(0)}ms:`, {
+        error: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+    }
+  }
+
   async function checkRunStatus() {
     const requestId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
@@ -153,14 +196,34 @@ export default function MCSResults() {
       
       console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check completed in ${statusElapsed.toFixed(0)}ms:`, {
         running: status.running,
+        status: status.status,
+        returncode: status.returncode,
+        error: status.error,
         timestamp: status.timestamp || 'N/A'
       });
       
       const wasRunning = running();
       setRunning(status.running);
       
+      // Update run status message
+      if (status.running) {
+        setRunStatus('Master.py is running...');
+      } else if (status.status === 'completed') {
+        setRunStatus(`Master.py completed successfully${status.returncode === 0 ? '' : ` (exit code: ${status.returncode})`}`);
+      } else if (status.status === 'failed') {
+        setRunStatus(`Master.py failed: ${status.error || `Exit code: ${status.returncode}`}`);
+        setError(`Master.py execution failed: ${status.error || `Exit code: ${status.returncode}`}`);
+      } else {
+        setRunStatus('');
+      }
+      
       if (wasRunning !== status.running) {
         console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status changed: ${wasRunning} -> ${status.running}`);
+        
+        // If it just finished, fetch logs
+        if (wasRunning && !status.running) {
+          fetchMasterLogs();
+        }
       }
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
@@ -190,6 +253,10 @@ export default function MCSResults() {
       
       setRunStatus(result.message || 'Master.py started successfully');
       setRunning(true);
+      setError(null); // Clear any previous errors
+      
+      // Fetch logs immediately to show progress
+      fetchMasterLogs();
       
       // Poll for completion and show logs
       let pollCount = 0;
@@ -200,20 +267,33 @@ export default function MCSResults() {
           const status = await mcs1Api.getRunStatus();
           const statusElapsed = performance.now() - statusStart;
           
-          console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check #${pollCount}: running=${status.running} (${statusElapsed.toFixed(0)}ms)`);
+          console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check #${pollCount}: running=${status.running}, status=${status.status} (${statusElapsed.toFixed(0)}ms)`);
+          
+          // Update logs every check
+          fetchMasterLogs();
           
           if (!status.running) {
             clearInterval(pollInterval);
             const totalElapsed = performance.now() - startTime;
             console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py completed (total: ${totalElapsed.toFixed(0)}ms)`);
             
-            setRunStatus('Master.py completed! Loading results...');
-            setRunning(false);
-            // Load today's predictions after completion
-            loadPredictions(today);
-            // Also refresh selected date if it's today
-            if (selectedDate() === today) {
+            // Final log fetch
+            await fetchMasterLogs();
+            
+            if (status.status === 'completed' && status.returncode === 0) {
+              setRunStatus('Master.py completed successfully! Loading results...');
+              setRunning(false);
+              // Load today's predictions after completion
               loadPredictions(today);
+              // Also refresh selected date if it's today
+              if (selectedDate() === today) {
+                loadPredictions(today);
+              }
+            } else {
+              setRunStatus(`Master.py failed: ${status.error || `Exit code: ${status.returncode}`}`);
+              setError(`Master.py execution failed: ${status.error || `Exit code: ${status.returncode}`}`);
+              setRunning(false);
+              setShowLogs(true); // Show logs on failure
             }
           }
         } catch (err) {

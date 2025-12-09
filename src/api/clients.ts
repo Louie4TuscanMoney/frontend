@@ -801,9 +801,72 @@ export const mcs1Api = {
   },
 
   /**
+   * Get Master.py execution logs
+   */
+  async getRunLogs(): Promise<{
+    stdout: string;
+    stderr: string;
+    returncode: number | null;
+    status: string;
+    error: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  }> {
+    const requestId = `logs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = performance.now();
+    const url = `${MCS_API_URL}/api/run/logs`;
+    
+    console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] GET ${url}`);
+    
+    try {
+      const response = await fetch(url, {
+        mode: 'cors',
+        headers: { 
+          'Accept': 'application/json',
+          'X-Request-ID': requestId
+        },
+        cache: 'no-cache'
+      });
+      
+      const elapsed = performance.now() - startTime;
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] HTTP ${response.status}: ${response.statusText} (${elapsed.toFixed(0)}ms)`, errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${elapsed.toFixed(0)}ms)`, {
+        status: data.status,
+        returncode: data.returncode,
+        hasStdout: !!data.stdout,
+        hasStderr: !!data.stderr
+      });
+      
+      return data;
+    } catch (error: any) {
+      const elapsed = performance.now() - startTime;
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] MCS1 API error (getRunLogs) after ${elapsed.toFixed(0)}ms:`, error);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Check if Master.py is currently running
    */
-  async getRunStatus(): Promise<{ running: boolean; timestamp?: string }> {
+  async getRunStatus(): Promise<{ 
+    running: boolean; 
+    status?: string;
+    returncode?: number | null;
+    error?: string | null;
+    timestamp?: string;
+  }> {
     const requestId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
     const url = `${MCS_API_URL}/api/run/status`;

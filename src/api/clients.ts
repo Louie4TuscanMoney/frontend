@@ -160,7 +160,7 @@ export const nbaApi = {
   async getGameById(gameId: string): Promise<NBAGame | null> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (reduced from 8)
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout (reduced from 3)
       
       const response = await fetch(`${NBA_API_URL}/games/${gameId}`, {
         method: 'GET',
@@ -291,13 +291,51 @@ export const shapApi = {
 
   async getPredictionForGame(gameId: string): Promise<SHAPPrediction | null> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+      
+      // Try direct endpoint first (faster if available)
+      try {
+        const directUrl = `${SHAP_API_URL}/api/predictions/${gameId}`;
+        const directResponse = await fetch(directUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors',
+          signal: controller.signal,
+          cache: 'no-cache'
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          // Handle both single prediction and array response
+          if (Array.isArray(data)) {
+            return data[0] || null;
+          }
+          return data.prediction || data || null;
+        }
+      } catch (directError: any) {
+        if (directError.name !== 'AbortError') {
+          // Fall back to fetching all predictions
+          clearTimeout(timeoutId);
+        }
+      }
+      
+      // Fallback: fetch all predictions and filter (cached from Home page if available)
       const predictions = await this.getPredictions();
       return predictions.find(p => 
         String(p.game_id) === String(gameId) || 
         String(p.gameId) === String(gameId)
       ) || null;
-    } catch (error) {
-      console.error('SHAP API error (getPredictionForGame):', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('SHAP API timeout for game:', gameId);
+      } else {
+        console.error('SHAP API error (getPredictionForGame):', error);
+      }
       return null;
     }
   }

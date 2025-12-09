@@ -25,10 +25,10 @@ export default function GameDetail() {
         setError('Game data is taking longer than expected. Please try refreshing.');
         setLoading(false);
       }
-    }, 5000); // 5 second timeout (reduced from 10)
+    }, 3000); // 3 second timeout (reduced from 5)
 
     try {
-      // Load game data first (critical) - show UI immediately when available
+      // Load game and SHAP in parallel - show UI immediately when game loads
       await loadGame();
       setLoading(false); // Show UI as soon as game data loads
       
@@ -63,37 +63,36 @@ export default function GameDetail() {
     try {
       setError(null);
       
-      // Load game data first (critical) - don't wait for SHAP
+      // Load game and SHAP in TRUE parallel (both start immediately)
       const gamePromise = nbaApi.getGameById(params.gameId);
+      const shapPromise = shapApi.getPredictionForGame(params.gameId);
       
-      // Load SHAP in parallel but don't block on it
-      const shapPromise = shapApi.getPredictionForGame(params.gameId).catch(err => {
-        console.warn('SHAP prediction not available:', err);
-        return null;
-      });
-      
-      // Set game data immediately when available (don't wait for SHAP)
-      const gameData = await Promise.race([
-        gamePromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
-      ]) as NBAGame | null;
+      // Race both promises - show game as soon as it loads, SHAP when ready
+      const [gameData, shapData] = await Promise.allSettled([
+        Promise.race([
+          gamePromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)) // 2 second timeout
+        ]),
+        Promise.race([
+          shapPromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)) // 2 second timeout
+        ])
+      ]);
 
-      if (!gameData) {
+      // Handle game data
+      const gameResult = gameData.status === 'fulfilled' ? gameData.value : null;
+      if (!gameResult) {
         setError('Game not found. It may have been removed or the game ID is invalid.');
         return;
       }
       
       // Set game immediately - UI shows right away
-      setGame(gameData);
+      setGame(gameResult);
       
-      // Set SHAP when it arrives (non-blocking)
-      shapPromise.then(shapData => {
-        if (shapData) {
-          setShap(shapData);
-        }
-      }).catch(() => {
-        // Silent fail - SHAP is optional
-      });
+      // Handle SHAP data (non-blocking)
+      if (shapData.status === 'fulfilled' && shapData.value) {
+        setShap(shapData.value);
+      }
       
     } catch (error) {
       console.error('Error loading game:', error);
@@ -268,13 +267,18 @@ export default function GameDetail() {
       </div>
 
       <Show when={activeTab() === 'overview'}>
-        {shapData && (
-          <div class="shap-section">
-            <h3>SHAP Predictions</h3>
+        <div class="shap-section">
+          <h3>SHAP Predictions</h3>
+          <Show when={shapData()} fallback={
+            <div class="shap-loading">
+              <div class="shap-loading-spinner"></div>
+              <p>Loading SHAP predictions...</p>
+            </div>
+          }>
             <div class="shap-data-container">
-              {shapData.prediction && typeof shapData.prediction === 'object' ? (
+              {shapData()?.prediction && typeof shapData()?.prediction === 'object' ? (
                 <div class="shap-data-grid">
-                  {Object.entries(shapData.prediction).map(([key, value]) => (
+                  {Object.entries(shapData()!.prediction).map(([key, value]) => (
                     <div class="shap-data-item">
                       <span class="shap-key">{key}:</span>
                       <span class="shap-value">{String(value)}</span>
@@ -282,11 +286,11 @@ export default function GameDetail() {
                   ))}
                 </div>
               ) : (
-                <pre class="shap-data">{JSON.stringify(shapData.prediction, null, 2)}</pre>
+                <pre class="shap-data">{JSON.stringify(shapData()?.prediction, null, 2)}</pre>
               )}
             </div>
-          </div>
-        )}
+          </Show>
+        </div>
 
         <div class="game-actions">
           <button class="bet-button-large" onclick={handlePlaceBet}>

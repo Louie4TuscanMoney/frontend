@@ -37,12 +37,12 @@ const BETINPUT_API_URL = ensureHttps(
 
 const DATA_API_URL = ensureHttps(
   import.meta.env.VITE_DATA_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8001' : 'https://data1-production.up.railway.app')
+  (import.meta.env.DEV ? 'http://localhost:8001' : 'https://data1-api-production.up.railway.app')
 );
 
 const MCS_API_URL = ensureHttps(
   import.meta.env.VITE_MCS_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8003' : 'https://mcs1-production.up.railway.app')
+  (import.meta.env.DEV ? 'http://localhost:8003' : 'https://ml1mcs-production.up.railway.app')
 );
 
 // Log API URLs (only in development)

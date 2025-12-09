@@ -25,6 +25,27 @@ const ensureHttps = (url: string): string => {
   return `https://${url}`;
 };
 
+// Helper function to add timeout to fetch requests
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+};
+
 const SHAP_API_URL = ensureHttps(
   import.meta.env.VITE_SHAP_API_URL || 
   (import.meta.env.DEV ? 'http://localhost:5000' : 'https://liveshap1-production.up.railway.app')
@@ -596,11 +617,15 @@ export const data1Api = {
    */
   async getDailyMCS(date: string): Promise<DailyData> {
     try {
-      const response = await fetch(`${DATA_API_URL}/api/daily/DailyMCS/${date}`, {
-        mode: 'cors',
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-cache'
-      });
+      const response = await fetchWithTimeout(
+        `${DATA_API_URL}/api/daily/DailyMCS/${date}`,
+        {
+          mode: 'cors',
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-cache'
+        },
+        15000 // 15 second timeout
+      );
       
       // Handle server errors (502, 503, etc.)
       if (response.status >= 500) {
@@ -632,6 +657,7 @@ export const data1Api = {
     } catch (error: any) {
       console.error('Data1 API error (getDailyMCS):', error);
       // Return empty result instead of throwing for better UX
+      // This prevents infinite loading states
       return {
         folder: 'DailyMCS',
         date: date,

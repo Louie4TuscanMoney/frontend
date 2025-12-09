@@ -30,25 +30,42 @@ export default function MCSResults() {
     try {
       setLoading(true);
       setError(null);
-      const data = await data1Api.getDailyMCS(date);
+      
+      // Add timeout wrapper to ensure loading state is cleared
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 20000);
+      });
+      
+      const data = await Promise.race([
+        data1Api.getDailyMCS(date),
+        timeoutPromise
+      ]) as any;
+      
       setPredictions(data.files || []);
       
       // Only show error if there's an actual error AND no files
       // Empty results are OK - just means no predictions for that date
-      if (data.count === 0 && !data.files || data.files.length === 0) {
+      if (data.count === 0 && (!data.files || data.files.length === 0)) {
         // No error - just no data (this is normal for dates without predictions)
         setError(null);
       }
     } catch (err: any) {
       console.error('Error loading predictions:', err);
-      // Only set error for actual failures, not empty results
-      if (err.message && !err.message.includes('No data found')) {
-        setError(err.message || 'Failed to load predictions');
+      // Set error message for user feedback
+      if (err.message) {
+        if (err.message.includes('timeout')) {
+          setError('Request timed out. The server may be slow or unavailable.');
+        } else if (!err.message.includes('No data found')) {
+          setError(err.message || 'Failed to load predictions');
+        } else {
+          setError(null);
+        }
       } else {
-        setError(null);
+        setError('Failed to load predictions. Please try again.');
       }
       setPredictions([]);
     } finally {
+      // Always clear loading state, even on error
       setLoading(false);
     }
   }

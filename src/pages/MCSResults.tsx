@@ -578,8 +578,9 @@ export default function MCSResults() {
             <For each={getLatestFilesByGame(predictions())}>
               {(file) => {
                 const gameInfo = getGameInfo(file);
-                const homeWinProb = gameInfo.winProbabilities?.home_team || 0;
-                const awayWinProb = gameInfo.winProbabilities?.away_team || 0;
+                // win_probabilities uses 'home' and 'away' keys, not 'home_team' and 'away_team'
+                const homeWinProb = gameInfo.winProbabilities?.home || gameInfo.winProbabilities?.home_team || 0;
+                const awayWinProb = gameInfo.winProbabilities?.away || gameInfo.winProbabilities?.away_team || 0;
                 const spreadDisplay = formatSpreadDisplay(gameInfo.spreadComparison);
                 
                 return (

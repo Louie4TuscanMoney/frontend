@@ -129,6 +129,18 @@
   color: #64748b;
 }
 
+.shap-no-data {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.shap-no-data p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
 .shap-data-container {
   background: rgba(15, 23, 42, 0.8);
   padding: 1.5rem;

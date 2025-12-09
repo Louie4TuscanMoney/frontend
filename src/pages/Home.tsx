@@ -55,8 +55,15 @@ export default function Home() {
     );
   }
 
-  function handleGameClick(gameId: string) {
-    navigate(`/game/${gameId}`);
+  function handleGameClick(game: NBAGame) {
+    // Pass game data and SHAP via navigation state for instant loading
+    const shapForGame = getShapForGame(game.gameId);
+    navigate(`/game/${game.gameId}`, {
+      state: {
+        game: game,
+        shap: shapForGame
+      }
+    });
   }
 
   function handleBetClick(gameId?: string) {
@@ -119,7 +126,7 @@ export default function Home() {
               return (
                 <div 
                   class={`game-tile ${isLive ? 'live' : ''} ${isFinal ? 'final' : ''}`}
-                  onclick={() => handleGameClick(game.gameId)}
+                  onclick={() => handleGameClick(game)}
                 >
                   <div class="game-status">
                     {isLive && <span class="live-indicator">🔴 LIVE</span>}

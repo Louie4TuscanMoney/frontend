@@ -24,11 +24,23 @@ export default function Portfolio() {
         await loadPortfolioData();
       }
     });
+    
+    // Also refresh when navigating to this page (handles back button, direct navigation)
+    const handleFocus = () => {
+      loadPortfolioData();
+    };
+    window.addEventListener('focus', handleFocus);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }
 
   async function loadPortfolioData() {
     try {
       setLoading(true);
+      console.log('🔄 Loading portfolio data...');
       
       // Auto-resolve pending bets FIRST (before loading portfolio)
       try {
@@ -52,7 +64,10 @@ export default function Portfolio() {
       }
       
       // Get portfolio data (includes bet_history, statistics, balance)
+      // Add cache-busting timestamp to ensure fresh data
       const portfolioData = await betInputApi.getPortfolio();
+      console.log('📊 Portfolio API response:', portfolioData);
+      
       setPortfolio(portfolioData);
       
       // Use bet_history from portfolio (already includes all bets from trade_log.json)
@@ -66,6 +81,13 @@ export default function Portfolio() {
       }).length;
       
       console.log(`📊 Portfolio loaded: ${bets.length} total bets (${pendingCount} pending), balance: $${portfolioData?.balance || 0}`);
+      console.log(`📊 Statistics:`, portfolioData?.statistics);
+      
+      // Log first few bets for debugging
+      if (bets.length > 0) {
+        console.log('📊 First bet:', bets[0]);
+        console.log('📊 Last bet:', bets[bets.length - 1]);
+      }
     } catch (error) {
       console.error('❌ Error loading portfolio:', error);
     } finally {

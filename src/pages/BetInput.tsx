@@ -151,10 +151,8 @@ export default function BetInput() {
         setMessage('✅ Bet placed successfully! Saved as pending.');
         setBalance(result.balance || balance());
         
-        // Navigate to Portfolio faster
-        setTimeout(() => {
-          navigate('/portfolio');
-        }, 800); // Reduced from 1500ms
+        // Navigate to Portfolio - it will auto-refresh on mount
+        navigate('/portfolio');
       } else {
         throw new Error('Bet was not created successfully');
       }

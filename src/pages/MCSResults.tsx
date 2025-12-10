@@ -380,9 +380,11 @@ export default function MCSResults() {
         setRunning(false);
         // Don't clear error if there was one - let user see it
       } else {
-        // Unknown status - log it
-        console.warn(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Unknown status: ${status.status}`);
-        setRunStatus(`Status: ${status.status || 'unknown'}`);
+        // Unknown status - log it and default to idle
+        const unknownStatus = status.status || 'idle';
+        console.warn(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Unknown status: ${status.status}, defaulting to idle`);
+        setRunStatus(unknownStatus === 'idle' ? '' : `Status: ${unknownStatus}`);
+        setRunning(false);
       }
       
       // Log state changes

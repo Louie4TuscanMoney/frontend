@@ -44,17 +44,45 @@ export default function MCSResults() {
     loadPredictions(today);
     checkRunStatus();
     
-    // Check run status every 5 seconds
-    const interval = setInterval(() => {
-      console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Polling run status`);
-      checkRunStatus();
-    }, 5000);
+    // Poll more frequently when running to show real-time progress
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
     
-    console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Status polling interval started (5s)`);
+    const startPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      
+      const currentRunning = running();
+      const pollDelay = currentRunning ? 2000 : 5000; // 2s when running, 5s when idle
+      
+      pollInterval = setInterval(() => {
+        const currentRunningState = running();
+        console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Polling (running: ${currentRunningState})`);
+        
+        checkRunStatus();
+        
+        // Fetch logs more frequently when running (every 2 seconds)
+        if (currentRunningState) {
+          fetchMasterLogs();
+        }
+      }, pollDelay);
+    };
+    
+    // Start initial polling
+    startPolling();
+    
+    // Watch for running state changes to adjust polling frequency
+    const runningCheckInterval = setInterval(() => {
+      startPolling(); // Restart with new interval based on current state
+    }, 3000) as unknown as number;
+    
+    console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Status polling started (adaptive)`);
     
     return () => {
-      clearInterval(interval);
-      console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Component unmounted, interval cleared`);
+      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(runningCheckInterval);
+      console.log(`[MCS_COMPONENT] [${new Date().toISOString()}] [COMPONENT_ID:${componentId}] Component unmounted, intervals cleared`);
     };
   });
 
@@ -205,8 +233,8 @@ export default function MCSResults() {
       
       setMasterLogs(logs);
       
-      // Always show logs if there's an error
-      if (logs.status === 'failed' || (logs.returncode !== null && logs.returncode !== 0)) {
+      // Auto-expand logs when running or if there's an error
+      if (logs.status === 'running' || logs.status === 'failed' || (logs.returncode !== null && logs.returncode !== 0)) {
         setShowLogs(true);
         
         // Log error details for debugging
@@ -290,8 +318,32 @@ export default function MCSResults() {
       
       // Update run status message based on backend status
       if (status.running) {
-        setRunStatus(`Master.py is running... (Status: ${status.status || 'running'})`);
+        // Extract step info from logs if available
+        const logs = masterLogs();
+        let stepInfo = '';
+        if (logs?.stdout) {
+          const stepMatch = logs.stdout.match(/\[(\d+)\/(\d+)\]/);
+          if (stepMatch) {
+            const stepNum = parseInt(stepMatch[1]);
+            const totalSteps = parseInt(stepMatch[2]);
+            const stepNames = [
+              'Scraping Daily Odds',
+              'Scraping Injury Reports',
+              'Scraping Advanced Box Scores',
+              'Scraping Game Results',
+              'Training Models',
+              'Running MCS Predictions',
+              'Running Extra Simulations',
+              'Aggregating Results',
+              'Comparing Predictions'
+            ];
+            const stepName = stepNames[stepNum] || `Step ${stepNum}`;
+            stepInfo = ` - Step ${stepNum}/${totalSteps}: ${stepName}`;
+          }
+        }
+        setRunStatus(`Master.py is running...${stepInfo}`);
         setError(null); // Clear error while running
+        setShowLogs(true); // Auto-show logs when running
       } else if (status.status === 'completed') {
         setRunStatus(`Master.py completed successfully${status.returncode === 0 ? '' : ` (exit code: ${status.returncode})`}`);
         setRunning(false);
@@ -326,9 +378,12 @@ export default function MCSResults() {
         await fetchMasterLogs();
       }
       
-      // Always fetch logs if running to show progress
+      // Always fetch logs if running to show progress (logs update every second on backend)
       if (status.running) {
         fetchMasterLogs();
+      } else if (wasRunning && !status.running) {
+        // Just finished - fetch final logs
+        await fetchMasterLogs();
       }
       
       console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Frontend State After Update:`, {
@@ -715,53 +770,165 @@ export default function MCSResults() {
         </div>
       </Show>
 
-      <Show when={masterLogs() && (showLogs() || running())}>
-        <div class="master-logs-container" style="margin: 20px 0; padding: 15px; background: #1e1e1e; border-radius: 8px; max-height: 400px; overflow-y: auto;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="margin: 0; color: #fff;">Master.py Execution Logs</h3>
+      {/* Master.py Execution Logs - Always show when running or logs exist */}
+      <Show when={running() || masterLogs()}>
+        <div class="master-logs-container" style={`margin: 20px 0; padding: 20px; background: #1e1e1e; border-radius: 8px; border: 2px solid ${running() ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : '#555'}`}>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+              <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 10px;">
+                {running() ? '🔄' : masterLogs()?.status === 'completed' ? '✅' : masterLogs()?.status === 'failed' ? '❌' : '📋'}
+                Master.py Execution {running() ? 'In Progress' : 'Logs'}
+              </h3>
+              {(() => {
+                const logs = masterLogs();
+                if (!logs) return null;
+                
+                // Extract current step from stdout
+                const stdout = logs.stdout || '';
+                const stepMatch = stdout.match(/\[(\d+)\/(\d+)\]/);
+                if (stepMatch) {
+                  const stepNum = parseInt(stepMatch[1]);
+                  const totalSteps = parseInt(stepMatch[2]);
+                  const stepNames = [
+                    'Scraping Daily Odds',
+                    'Scraping Injury Reports',
+                    'Scraping Advanced Box Scores',
+                    'Scraping Game Results',
+                    'Training Models',
+                    'Running MCS Predictions',
+                    'Running Extra Simulations',
+                    'Aggregating Results',
+                    'Comparing Predictions'
+                  ];
+                  const stepName = stepNames[stepNum] || `Step ${stepNum}`;
+                  return (
+                    <div style="color: #4caf50; font-size: 0.9em; margin-top: 5px;">
+                      Current Step: <strong>{stepNum}/{totalSteps} - {stepName}</strong>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
             <button 
               onClick={() => setShowLogs(!showLogs())}
-              style="background: #333; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer;"
+              style="background: #333; color: #fff; border: 1px solid #555; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
             >
-              {showLogs() ? 'Hide' : 'Show'} Logs
+              {showLogs() ? '▼ Hide' : '▶ Show'} Full Logs
             </button>
           </div>
           
-          <Show when={showLogs()}>
-            <div style="margin-bottom: 15px;">
-              <div style="color: #888; font-size: 0.85em; margin-bottom: 5px;">
-                Status: <strong style={`color: ${masterLogs()?.status === 'completed' ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : '#ffa500'}`}>{masterLogs()?.status || 'unknown'}</strong>
-                {masterLogs()?.returncode !== null && ` | Exit Code: ${masterLogs()?.returncode}`}
+          {/* Status Summary */}
+          <div style="margin-bottom: 15px; padding: 10px; background: #2a2a2a; border-radius: 4px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.9em;">
+              <div>
+                <span style="color: #888;">Status:</span>{' '}
+                <strong style={`color: ${masterLogs()?.status === 'completed' ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : running() ? '#ffa500' : '#888'}`}>
+                  {masterLogs()?.status || (running() ? 'running' : 'idle')}
+                </strong>
               </div>
-              <Show when={masterLogs()?.start_time}>
-                <div style="color: #888; font-size: 0.85em; margin-bottom: 5px;">
-                  Started: {new Date(masterLogs()?.start_time || '').toLocaleString()}
-                  {masterLogs()?.end_time && ` | Ended: ${new Date(masterLogs()?.end_time || '').toLocaleString()}`}
+              {masterLogs()?.returncode !== null && (
+                <div>
+                  <span style="color: #888;">Exit Code:</span>{' '}
+                  <strong style={`color: ${masterLogs()?.returncode === 0 ? '#4caf50' : '#f44336'}`}>
+                    {masterLogs()?.returncode}
+                  </strong>
+                </div>
+              )}
+              {masterLogs()?.start_time && (
+                <div>
+                  <span style="color: #888;">Started:</span>{' '}
+                  <strong style="color: #fff;">{new Date(masterLogs()?.start_time || '').toLocaleTimeString()}</strong>
+                </div>
+              )}
+              {masterLogs()?.end_time && (
+                <div>
+                  <span style="color: #888;">Ended:</span>{' '}
+                  <strong style="color: #fff;">{new Date(masterLogs()?.end_time || '').toLocaleTimeString()}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          {(() => {
+            const logs = masterLogs();
+            if (!logs || !running()) return null;
+            
+            const stdout = logs.stdout || '';
+            const stepMatch = stdout.match(/\[(\d+)\/(\d+)\]/);
+            if (stepMatch) {
+              const stepNum = parseInt(stepMatch[1]);
+              const totalSteps = parseInt(stepMatch[2]);
+              const progress = (stepNum / totalSteps) * 100;
+              
+              return (
+                <div style="margin-bottom: 15px;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9em; color: #888;">
+                    <span>Progress: Step {stepNum} of {totalSteps}</span>
+                    <span>{progress.toFixed(0)}%</span>
+                  </div>
+                  <div style="width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+                    <div 
+                      style={`width: ${progress}%; height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); transition: width 0.3s ease;`}
+                    />
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
+          {/* Live Output Preview (Last 20 lines when running) */}
+          {running() && masterLogs()?.stdout && (
+            <div style="margin-bottom: 15px;">
+              <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
+                <span style="animation: blink 1s infinite;">●</span> Live Output:
+              </div>
+              <pre 
+                id="live-output"
+                style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; font-family: 'Courier New', monospace;"
+              >
+                {(() => {
+                  const stdout = masterLogs()?.stdout || '';
+                  const lines = stdout.split('\n');
+                  // Show last 20 lines when running
+                  return lines.slice(-20).join('\n');
+                })()}
+              </pre>
+            </div>
+          )}
+          
+          {/* Full Logs (Expandable) */}
+          <Show when={showLogs() || !running()}>
+            <div>
+              <Show when={masterLogs()?.stdout}>
+                <div style="margin-bottom: 15px;">
+                  <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px;">Complete Output:</div>
+                  <pre 
+                    id="full-output"
+                    style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word; max-height: 500px; overflow-y: auto; font-family: 'Courier New', monospace;"
+                  >
+                    {masterLogs()?.stdout || '(empty)'}
+                  </pre>
+                </div>
+              </Show>
+              
+              <Show when={masterLogs()?.stderr}>
+                <div>
+                  <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">Errors:</div>
+                  <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #f44; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;">
+                    {masterLogs()?.stderr || '(empty)'}
+                  </pre>
+                </div>
+              </Show>
+              
+              <Show when={!masterLogs()?.stdout && !masterLogs()?.stderr && !running()}>
+                <div style="color: #888; font-style: italic; text-align: center; padding: 20px;">
+                  No logs available yet. Click "Run Master.py" to start execution.
                 </div>
               </Show>
             </div>
-            
-            <Show when={masterLogs()?.stdout}>
-              <div style="margin-bottom: 15px;">
-                <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px;">STDOUT:</div>
-                <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word;">
-                  {masterLogs()?.stdout || '(empty)'}
-                </pre>
-              </div>
-            </Show>
-            
-            <Show when={masterLogs()?.stderr}>
-              <div>
-                <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">STDERR:</div>
-                <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #f44; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word;">
-                  {masterLogs()?.stderr || '(empty)'}
-                </pre>
-              </div>
-            </Show>
-            
-            <Show when={!masterLogs()?.stdout && !masterLogs()?.stderr}>
-              <div style="color: #888; font-style: italic;">No logs available yet...</div>
-            </Show>
           </Show>
         </div>
       </Show>

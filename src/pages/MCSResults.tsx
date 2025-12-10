@@ -393,17 +393,12 @@ export default function MCSResults() {
         console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ⚠️ STATUS CHANGED: ${wasStatus} -> ${status.status}`);
       }
       
-      // If it just finished, fetch logs
-      if (wasRunning && !status.running) {
-        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Process finished, fetching final logs...`);
-        await fetchMasterLogs();
-      }
-      
       // Always fetch logs if running to show progress (logs update every second on backend)
       if (status.running) {
-        fetchMasterLogs();
+        await fetchMasterLogs();
       } else if (wasRunning && !status.running) {
         // Just finished - fetch final logs
+        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Process finished, fetching final logs...`);
         await fetchMasterLogs();
       }
       

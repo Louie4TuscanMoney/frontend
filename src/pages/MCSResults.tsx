@@ -265,37 +265,79 @@ export default function MCSResults() {
       const status = await mcs1Api.getRunStatus();
       const statusElapsed = performance.now() - statusStart;
       
-      console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check completed in ${statusElapsed.toFixed(0)}ms:`, {
+      const wasRunning = running();
+      const wasStatus = masterLogs()?.status || 'idle';
+      
+      // Log full backend status for debugging
+      console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Backend Status Response:`, {
         running: status.running,
         status: status.status,
         returncode: status.returncode,
         error: status.error,
-        timestamp: status.timestamp || 'N/A'
+        start_time: status.start_time,
+        end_time: status.end_time,
+        timestamp: status.timestamp || 'N/A',
+        responseTime: `${statusElapsed.toFixed(0)}ms`
       });
       
-      const wasRunning = running();
+      console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Frontend State Before Update:`, {
+        running: wasRunning,
+        status: wasStatus,
+        hasLogs: !!masterLogs()
+      });
+      
+      // Update state based on backend response - single source of truth
       setRunning(status.running);
       
-      // Update run status message
+      // Update run status message based on backend status
       if (status.running) {
-        setRunStatus('Master.py is running...');
+        setRunStatus(`Master.py is running... (Status: ${status.status || 'running'})`);
+        setError(null); // Clear error while running
       } else if (status.status === 'completed') {
         setRunStatus(`Master.py completed successfully${status.returncode === 0 ? '' : ` (exit code: ${status.returncode})`}`);
+        setRunning(false);
+        setError(null);
       } else if (status.status === 'failed') {
-        setRunStatus(`Master.py failed: ${status.error || `Exit code: ${status.returncode}`}`);
-        setError(`Master.py execution failed: ${status.error || `Exit code: ${status.returncode}`}`);
-      } else {
+        const errorMsg = status.error || `Exit code: ${status.returncode}`;
+        setRunStatus(`Master.py failed: ${errorMsg}`);
+        setError(`Master.py execution failed: ${errorMsg}`);
+        setRunning(false);
+        setShowLogs(true); // Show logs on failure
+      } else if (status.status === 'idle') {
         setRunStatus('');
+        setRunning(false);
+        // Don't clear error if there was one - let user see it
+      } else {
+        // Unknown status - log it
+        console.warn(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Unknown status: ${status.status}`);
+        setRunStatus(`Status: ${status.status || 'unknown'}`);
       }
       
+      // Log state changes
       if (wasRunning !== status.running) {
-        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status changed: ${wasRunning} -> ${status.running}`);
-        
-        // If it just finished, fetch logs
-        if (wasRunning && !status.running) {
-          fetchMasterLogs();
-        }
+        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ⚠️ RUNNING STATE CHANGED: ${wasRunning} -> ${status.running}`);
       }
+      if (wasStatus !== status.status) {
+        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ⚠️ STATUS CHANGED: ${wasStatus} -> ${status.status}`);
+      }
+      
+      // If it just finished, fetch logs
+      if (wasRunning && !status.running) {
+        console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Process finished, fetching final logs...`);
+        await fetchMasterLogs();
+      }
+      
+      // Always fetch logs if running to show progress
+      if (status.running) {
+        fetchMasterLogs();
+      }
+      
+      console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Frontend State After Update:`, {
+        running: running(),
+        status: masterLogs()?.status || 'no logs',
+        runStatus: runStatus()
+      });
+      
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== STATUS CHECK ERROR ==========`);
@@ -305,6 +347,8 @@ export default function MCSResults() {
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error:`, err);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, err.stack);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ======================================`);
+      
+      // Don't change state on error - keep current state
     }
   }
 
@@ -324,98 +368,22 @@ export default function MCSResults() {
       
       console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py triggered in ${apiElapsed.toFixed(0)}ms`, result);
       
+      console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Trigger response:`, result);
       setRunStatus(result.message || 'Master.py started successfully');
-      setRunning(true);
+      
+      // Don't set running state here - let checkRunStatus() handle it based on backend response
+      // This prevents race conditions
       setError(null); // Clear any previous errors
+      
+      // Immediately check status to get accurate state from backend
+      await checkRunStatus();
       
       // Fetch logs immediately to show progress
       fetchMasterLogs();
       
-      // Poll for completion and show logs
-      let pollCount = 0;
-      const pollInterval = setInterval(async () => {
-        pollCount++;
-        try {
-          const statusStart = performance.now();
-          const status = await mcs1Api.getRunStatus();
-          const statusElapsed = performance.now() - statusStart;
-          
-          console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check #${pollCount}: running=${status.running}, status=${status.status} (${statusElapsed.toFixed(0)}ms)`);
-          
-          // Update logs every check
-          fetchMasterLogs();
-          
-          if (!status.running) {
-            clearInterval(pollInterval);
-            const totalElapsed = performance.now() - startTime;
-            console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py completed (total: ${totalElapsed.toFixed(0)}ms)`);
-            
-            // Final log fetch
-            await fetchMasterLogs();
-            
-            if (status.status === 'completed' && status.returncode === 0) {
-              setRunStatus('Master.py completed successfully! Loading results...');
-              setRunning(false);
-              // Load today's predictions after completion
-              loadPredictions(today);
-              // Also refresh selected date if it's today
-              if (selectedDate() === today) {
-                loadPredictions(today);
-              }
-            } else {
-              // Extract detailed error information
-              let errorMessage = `Master.py failed`;
-              if (status.error) {
-                errorMessage += `: ${status.error}`;
-              } else if (status.returncode !== null) {
-                errorMessage += ` (Exit code: ${status.returncode})`;
-              }
-              
-              // Try to extract step information from logs
-              const logs = masterLogs();
-              if (logs?.stderr) {
-                const stepMatch = logs.stderr.match(/\[(\d+)\/(\d+)\]/);
-                if (stepMatch) {
-                  const stepNum = parseInt(stepMatch[1]);
-                  const totalSteps = parseInt(stepMatch[2]);
-                  const stepNames = [
-                    'Scraping Daily Odds',
-                    'Scraping Injury Reports', 
-                    'Scraping Advanced Box Scores',
-                    'Scraping Game Results',
-                    'Training Models',
-                    'Running MCS Predictions',
-                    'Running Extra Simulations',
-                    'Aggregating Results',
-                    'Comparing Predictions'
-                  ];
-                  const stepName = stepNames[stepNum] || `Step ${stepNum}`;
-                  errorMessage += ` - Failed at Step ${stepNum}/${totalSteps}: ${stepName}`;
-                }
-              }
-              
-              setRunStatus(errorMessage);
-              setError(errorMessage);
-              setRunning(false);
-              setShowLogs(true); // Always show logs on failure
-              
-              console.error(`[MASTER_FAILED] [${new Date().toISOString()}] Master.py failed:`, {
-                status: status.status,
-                returncode: status.returncode,
-                error: status.error,
-                logs: logs
-              });
-            }
-          }
-        } catch (err: any) {
-          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error checking status (poll #${pollCount}):`, err);
-          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check error details:`, {
-            name: err.name,
-            message: err.message,
-            stack: err.stack
-          });
-        }
-      }, 5000); // Check every 5 seconds
+      // Note: We don't need a separate polling interval here because checkRunStatus()
+      // is already being called every 5 seconds by the main component interval.
+      // This prevents multiple polling intervals from conflicting.
       
       // Refresh predictions after a delay (Master.py takes time)
       setTimeout(() => {
@@ -608,14 +576,38 @@ export default function MCSResults() {
             onClick={handleTriggerMasterPy}
             disabled={running()}
           >
-            {running() ? '⏳ Running...' : '🚀 Run Master.py'}
+            {(() => {
+              const isRunning = running();
+              const status = masterLogs()?.status;
+              if (isRunning) {
+                return `⏳ Running... (${status || 'running'})`;
+              } else if (status === 'failed') {
+                return '🚀 Run Master.py (Previous run failed)';
+              } else if (status === 'completed') {
+                return '🚀 Run Master.py';
+              } else {
+                return '🚀 Run Master.py';
+              }
+            })()}
           </button>
         </div>
       </div>
 
-      <Show when={runStatus()}>
+      <Show when={runStatus() || running()}>
         <div class={`status-message ${running() ? 'running' : masterLogs()?.status === 'failed' ? 'failed' : ''}`}>
-          {runStatus()}
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span>{running() ? '🔄' : masterLogs()?.status === 'failed' ? '❌' : masterLogs()?.status === 'completed' ? '✅' : 'ℹ️'}</span>
+            <div>
+              <div style="font-weight: bold;">{runStatus() || (running() ? 'Master.py is running...' : 'Status unknown')}</div>
+              <Show when={masterLogs()}>
+                <div style="font-size: 0.85em; color: #888; margin-top: 4px;">
+                  Backend Status: {masterLogs()?.status || 'unknown'} | 
+                  Running: {running() ? 'Yes' : 'No'} | 
+                  {masterLogs()?.returncode !== null && `Exit Code: ${masterLogs()?.returncode}`}
+                </div>
+              </Show>
+            </div>
+          </div>
           <Show when={masterLogs()?.error}>
             <div class="error-details" style="margin-top: 8px; font-size: 0.9em; color: #ff4444;">
               {masterLogs()?.error}

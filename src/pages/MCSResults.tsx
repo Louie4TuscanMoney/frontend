@@ -148,12 +148,22 @@ export default function MCSResults() {
       
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error loading predictions after ${elapsed.toFixed(0)}ms:`, err);
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+      
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== LOAD PREDICTIONS ERROR ==========`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Date: ${date}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${err.message || 'No message'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Elapsed Time: ${elapsed.toFixed(0)}ms`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error:`, err);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, err.stack);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Details:`, {
+        name: err.name,
         message: err.message,
         stack: err.stack,
-        name: err.name
+        cause: err.cause,
+        code: err.code
       });
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ===========================================`);
       
       // Set error message for user feedback
       if (err.message) {
@@ -201,11 +211,13 @@ export default function MCSResults() {
       }
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Could not fetch logs after ${elapsed.toFixed(0)}ms:`, {
-        error: err.message,
-        stack: err.stack,
-        name: err.name
-      });
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== FETCH LOGS ERROR ==========`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${err.message || 'No message'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Elapsed Time: ${elapsed.toFixed(0)}ms`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error:`, err);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, err.stack);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ====================================`);
     }
   }
 
@@ -253,11 +265,13 @@ export default function MCSResults() {
       }
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Could not check run status after ${elapsed.toFixed(0)}ms:`, {
-        error: err.message,
-        stack: err.stack,
-        name: err.name
-      });
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== STATUS CHECK ERROR ==========`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${err.message || 'No message'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Elapsed Time: ${elapsed.toFixed(0)}ms`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error:`, err);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, err.stack);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ======================================`);
     }
   }
 
@@ -322,8 +336,13 @@ export default function MCSResults() {
               setShowLogs(true); // Show logs on failure
             }
           }
-        } catch (err) {
-          console.warn(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error checking status:`, err);
+        } catch (err: any) {
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error checking status (poll #${pollCount}):`, err);
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Status check error details:`, {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
+          });
         }
       }, 5000); // Check every 5 seconds
       
@@ -334,15 +353,31 @@ export default function MCSResults() {
       }, 30000); // Refresh after 30 seconds
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error triggering Master.py after ${elapsed.toFixed(0)}ms:`, err);
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+      
+      // Comprehensive error logging
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== MASTER.PY TRIGGER ERROR ==========`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${err.message || 'No message'}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Elapsed Time: ${elapsed.toFixed(0)}ms`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error Object:`, err);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, err.stack);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Details:`, {
+        name: err.name,
         message: err.message,
         stack: err.stack,
-        name: err.name
+        cause: err.cause,
+        code: err.code,
+        errno: err.errno,
+        syscall: err.syscall
       });
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ===========================================`);
       
-      setRunStatus(`Error: ${err.message || 'Failed to trigger Master.py'}`);
+      // Display user-friendly error message
+      const errorMessage = err.message || 'Failed to trigger Master.py';
+      setRunStatus(`Error: ${errorMessage}`);
+      setError(`Failed to trigger Master.py: ${errorMessage}`);
       setRunning(false);
+      setShowLogs(true); // Show logs on error
     }
   }
 

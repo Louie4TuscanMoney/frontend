@@ -770,39 +770,110 @@ export const mcs1Api = {
     const url = `${MCS_API_URL}/api/run`;
     
     console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] POST ${url}`);
+    console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] MCS_API_URL: ${MCS_API_URL}`);
     
     try {
-      const response = await fetch(url, {
+      const fetchOptions = {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'X-Request-ID': requestId,
           'Accept': 'application/json'
         },
-        mode: 'cors',
-        cache: 'no-cache'
-      });
+        mode: 'cors' as RequestMode,
+        cache: 'no-cache' as RequestCache
+      };
+      
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Fetch options:`, JSON.stringify(fetchOptions, null, 2));
+      
+      const response = await fetch(url, fetchOptions);
       
       const elapsed = performance.now() - startTime;
       
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response received: ${response.status} ${response.statusText} (${elapsed.toFixed(0)}ms)`);
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response headers:`, Object.fromEntries(response.headers.entries()));
+      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response ok: ${response.ok}, redirected: ${response.redirected}, type: ${response.type}`);
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] HTTP ${response.status}: ${response.statusText} (${elapsed.toFixed(0)}ms)`, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        let errorData: any = {};
+        let errorText = '';
+        
+        try {
+          errorText = await response.text();
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response body (text):`, errorText);
+          
+          try {
+            errorData = JSON.parse(errorText);
+            console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response body (parsed):`, errorData);
+          } catch (parseError) {
+            console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Failed to parse error response as JSON:`, parseError);
+            errorData = { raw: errorText };
+          }
+        } catch (readError) {
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Failed to read error response:`, readError);
+        }
+        
+        const errorMessage = errorData.error || errorData.message || errorText || `HTTP ${response.status}: ${response.statusText}`;
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full error details:`, {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          errorData: errorData,
+          errorText: errorText,
+          elapsed: elapsed.toFixed(0) + 'ms'
+        });
+        
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
-      console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${elapsed.toFixed(0)}ms)`, data);
+      let data: any;
+      try {
+        const responseText = await response.text();
+        console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response body (text):`, responseText.substring(0, 500));
+        
+        try {
+          data = JSON.parse(responseText);
+          console.log(`[API] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response: 200 OK (${elapsed.toFixed(0)}ms)`, data);
+        } catch (parseError) {
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Failed to parse response as JSON:`, parseError);
+          console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Response text:`, responseText);
+          throw new Error(`Invalid JSON response: ${parseError}`);
+        }
+      } catch (readError: any) {
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Failed to read response:`, readError);
+        throw new Error(`Failed to read response: ${readError.message}`);
+      }
       
       return data;
     } catch (error: any) {
       const elapsed = performance.now() - startTime;
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] MCS1 API error after ${elapsed.toFixed(0)}ms:`, error);
-      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error details:`, {
+      
+      // Enhanced error logging
+      const errorDetails = {
+        name: error.name,
         message: error.message,
         stack: error.stack,
-        name: error.name
-      });
+        cause: error.cause,
+        url: url,
+        elapsed: elapsed.toFixed(0) + 'ms',
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== MCS1 API ERROR ==========`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${error.name}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${error.message}`);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Full Error Details:`, errorDetails);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Stack Trace:`, error.stack);
+      console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ====================================`);
+      
+      // Check for specific error types
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Network/Fetch Error - Check CORS, network connectivity, or API URL`);
+      }
+      if (error.name === 'AbortError') {
+        console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Request Timeout - API took too long to respond`);
+      }
+      
       throw error;
     }
   },

@@ -402,27 +402,107 @@ export default function MCSResults() {
         // Reload predictions when Master.py completes successfully
         if (status.returncode === 0) {
           console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py completed successfully, reloading predictions...`);
-          // Wait a moment for files to be written, then reload with retries
+          
+          // Extract game dates from Master.py logs to know which dates to reload
+          const logs = masterLogs();
+          const datesToCheck = new Set<string>();
+          
+          // Add current selected date
           const currentDate = selectedDate() || getTodayDate();
+          datesToCheck.add(currentDate);
+          
+          // Try to extract game dates from logs (look for "Game Date: YYYY-MM-DD" or similar patterns)
+          if (logs?.stdout) {
+            // Look for date patterns in logs (e.g., "2025-12-11", "12/11/2025", "Game Date: 2025-12-11")
+            const datePatterns = [
+              /\b(\d{4}-\d{2}-\d{2})\b/g,  // YYYY-MM-DD
+              /\b(\d{2}\/\d{2}\/\d{4})\b/g,  // MM/DD/YYYY
+              /Game Date[:\s]+(\d{4}-\d{2}-\d{2})/gi,  // "Game Date: 2025-12-11"
+              /scheduled for (\d{4}-\d{2}-\d{2})/gi,  // "scheduled for 2025-12-11"
+            ];
+            
+            datePatterns.forEach(pattern => {
+              const matches = logs.stdout.matchAll(pattern);
+              for (const match of matches) {
+                let dateStr = match[1];
+                // Convert MM/DD/YYYY to YYYY-MM-DD if needed
+                if (dateStr.includes('/')) {
+                  const parts = dateStr.split('/');
+                  if (parts.length === 3) {
+                    dateStr = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                  }
+                }
+                // Only add dates that are today or in the future (up to 3 days)
+                const gameDate = new Date(dateStr + 'T00:00:00');
+                const today = new Date(getTodayDate() + 'T00:00:00');
+                const threeDaysLater = new Date(today);
+                threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+                
+                if (gameDate >= today && gameDate <= threeDaysLater) {
+                  datesToCheck.add(dateStr);
+                }
+              }
+            });
+          }
+          
+          // Also check today, tomorrow, and day after tomorrow (in case games are scheduled for future dates)
+          const today = new Date(getTodayDate() + 'T00:00:00');
+          for (let i = 0; i <= 2; i++) {
+            const checkDate = new Date(today);
+            checkDate.setDate(checkDate.getDate() + i);
+            const dateStr = checkDate.toISOString().split('T')[0];
+            datesToCheck.add(dateStr);
+          }
+          
+          console.log(`[RUN_STATUS] [${new Date().toISOString()}] Checking predictions for dates:`, Array.from(datesToCheck));
+          
+          // Reload predictions for all relevant dates
           let retryCount = 0;
           const maxRetries = 5;
+          const datesArray = Array.from(datesToCheck);
           
-          const reloadWithRetry = () => {
+          const reloadWithRetry = (dateIndex: number = 0) => {
+            if (dateIndex >= datesArray.length) {
+              // All dates checked, retry if needed
+              setTimeout(() => {
+                const preds = predictions();
+                if (preds.length === 0 && retryCount < maxRetries - 1) {
+                  retryCount++;
+                  console.log(`[RUN_STATUS] [${new Date().toISOString()}] No predictions found, retrying (attempt ${retryCount + 1}/${maxRetries})...`);
+                  reloadWithRetry(0); // Start over with all dates
+                } else if (preds.length > 0) {
+                  console.log(`[RUN_STATUS] [${new Date().toISOString()}] Successfully loaded ${preds.length} predictions!`);
+                } else {
+                  console.log(`[RUN_STATUS] [${new Date().toISOString()}] No predictions found after ${maxRetries} attempts`);
+                }
+              }, 1000);
+              return;
+            }
+            
+            const dateToLoad = datesArray[dateIndex];
             setTimeout(() => {
-              console.log(`[RUN_STATUS] [${new Date().toISOString()}] Reloading predictions for ${currentDate} (attempt ${retryCount + 1}/${maxRetries})`);
-              loadPredictions(currentDate).then(() => {
-                // Check if we got predictions
-                setTimeout(() => {
-                  const preds = predictions();
-                  if (preds.length === 0 && retryCount < maxRetries - 1) {
-                    retryCount++;
-                    reloadWithRetry(); // Retry after 3 more seconds
-                  } else if (preds.length > 0) {
-                    console.log(`[RUN_STATUS] [${new Date().toISOString()}] Successfully loaded ${preds.length} predictions!`);
+              console.log(`[RUN_STATUS] [${new Date().toISOString()}] Reloading predictions for ${dateToLoad} (${dateIndex + 1}/${datesArray.length})`);
+              
+              // If this is the currently selected date, load it normally
+              if (dateToLoad === currentDate) {
+                loadPredictions(dateToLoad).then(() => {
+                  reloadWithRetry(dateIndex + 1);
+                });
+              } else {
+                // For other dates, just check if they exist (don't switch selected date)
+                // But if we find predictions, we might want to show a notification
+                data1Api.getDailyMCS(dateToLoad).then((data: any) => {
+                  if (data.files && data.files.length > 0) {
+                    console.log(`[RUN_STATUS] [${new Date().toISOString()}] Found ${data.files.length} predictions for ${dateToLoad} (not currently selected)`);
+                    // Optionally: show a notification or update UI to indicate predictions exist for this date
                   }
-                }, 1000);
-              });
-            }, retryCount === 0 ? 3000 : 3000); // First wait 3s, then 3s between retries
+                  reloadWithRetry(dateIndex + 1);
+                }).catch(() => {
+                  // Date doesn't exist or no predictions - continue
+                  reloadWithRetry(dateIndex + 1);
+                });
+              }
+            }, dateIndex === 0 ? 3000 : 1000); // First wait 3s, then 1s between dates
           };
           
           reloadWithRetry();

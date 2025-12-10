@@ -362,12 +362,30 @@ export default function MCSResults() {
         // Reload predictions when Master.py completes successfully
         if (status.returncode === 0) {
           console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py completed successfully, reloading predictions...`);
-          // Wait a moment for files to be written, then reload
-          setTimeout(() => {
-            const currentDate = selectedDate() || getTodayDate();
-            console.log(`[RUN_STATUS] [${new Date().toISOString()}] Reloading predictions for ${currentDate}`);
-            loadPredictions(currentDate);
-          }, 2000); // Wait 2 seconds for files to be written
+          // Wait a moment for files to be written, then reload with retries
+          const currentDate = selectedDate() || getTodayDate();
+          let retryCount = 0;
+          const maxRetries = 5;
+          
+          const reloadWithRetry = () => {
+            setTimeout(() => {
+              console.log(`[RUN_STATUS] [${new Date().toISOString()}] Reloading predictions for ${currentDate} (attempt ${retryCount + 1}/${maxRetries})`);
+              loadPredictions(currentDate).then(() => {
+                // Check if we got predictions
+                setTimeout(() => {
+                  const preds = predictions();
+                  if (preds.length === 0 && retryCount < maxRetries - 1) {
+                    retryCount++;
+                    reloadWithRetry(); // Retry after 3 more seconds
+                  } else if (preds.length > 0) {
+                    console.log(`[RUN_STATUS] [${new Date().toISOString()}] Successfully loaded ${preds.length} predictions!`);
+                  }
+                }, 1000);
+              });
+            }, retryCount === 0 ? 3000 : 3000); // First wait 3s, then 3s between retries
+          };
+          
+          reloadWithRetry();
         }
       } else if (status.status === 'failed') {
         const errorMsg = status.error || `Exit code: ${status.returncode}`;
@@ -647,16 +665,41 @@ export default function MCSResults() {
             class={`run-button ${running() ? 'running' : ''}`}
             onClick={handleTriggerMasterPy}
             disabled={running()}
+            style={`
+              padding: 12px 24px;
+              font-size: 16px;
+              font-weight: bold;
+              border-radius: 8px;
+              border: none;
+              cursor: ${running() ? 'not-allowed' : 'pointer'};
+              transition: all 0.3s ease;
+              ${running() 
+                ? 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; opacity: 0.7;' 
+                : 'background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: #fff; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);'
+              }
+            `}
+            onMouseEnter={(e) => {
+              if (!running()) {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(76, 175, 80, 0.6)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!running()) {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+              }
+            }}
           >
             {(() => {
               const isRunning = running();
               const status = masterLogs()?.status;
               if (isRunning) {
-                return `⏳ Running... (${status || 'running'})`;
+                return `⏳ Running Master.py... (${status || 'running'})`;
               } else if (status === 'failed') {
                 return '🚀 Run Master.py (Previous run failed)';
               } else if (status === 'completed') {
-                return '🚀 Run Master.py';
+                return '🚀 Run Master.py Again';
               } else {
                 return '🚀 Run Master.py';
               }
@@ -788,14 +831,22 @@ export default function MCSResults() {
         </div>
       </Show>
 
-      {/* Master.py Execution Logs - Always show when running or logs exist */}
+      {/* Master.py Execution Logs - Always show when running or logs exist, auto-expand when running */}
       <Show when={running() || masterLogs()}>
-        <div class="master-logs-container" style={`margin: 20px 0; padding: 20px; background: #1e1e1e; border-radius: 8px; border: 2px solid ${running() ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : '#555'}`}>
+        <div class="master-logs-container" style={`
+          margin: 20px 0; 
+          padding: 20px; 
+          background: #1e1e1e; 
+          border-radius: 8px; 
+          border: 2px solid ${running() ? '#4caf50' : masterLogs()?.status === 'failed' ? '#f44336' : '#555'};
+          ${running() ? 'box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);' : ''}
+        `}>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <div>
-              <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 10px; font-size: 18px;">
                 {running() ? '🔄' : masterLogs()?.status === 'completed' ? '✅' : masterLogs()?.status === 'failed' ? '❌' : '📋'}
                 Master.py Execution {running() ? 'In Progress' : 'Logs'}
+                {running() && <span style="font-size: 14px; color: #4caf50; margin-left: 10px;">(Live)</span>}
               </h3>
               {(() => {
                 const logs = masterLogs();
@@ -833,7 +884,17 @@ export default function MCSResults() {
             </div>
             <button 
               onClick={() => setShowLogs(!showLogs())}
-              style="background: #333; color: #fff; border: 1px solid #555; padding: 8px 16px; border-radius: 4px; cursor: pointer;"
+              style={`
+                background: ${showLogs() ? '#555' : '#333'}; 
+                color: #fff; 
+                border: 1px solid #555; 
+                padding: 8px 16px; 
+                border-radius: 4px; 
+                cursor: pointer;
+                transition: all 0.2s ease;
+              `}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#444'}
+              onMouseLeave={(e) => e.currentTarget.style.background = showLogs() ? '#555' : '#333'}
             >
               {showLogs() ? '▼ Hide' : '▶ Show'} Full Logs
             </button>
@@ -902,21 +963,29 @@ export default function MCSResults() {
             return null;
           })()}
           
-          {/* Live Output Preview (Last 20 lines when running) */}
-          {running() && masterLogs()?.stdout && (
+          {/* Live Output Preview (Always visible when running, auto-scrolls) */}
+          {running() && (
             <div style="margin-bottom: 15px;">
               <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
-                <span style="animation: blink 1s infinite;">●</span> Live Output:
+                <span style="animation: blink 1s infinite; font-size: 12px;">●</span> Live Output (Auto-updating):
               </div>
               <pre 
                 id="live-output"
-                style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; font-family: 'Courier New', monospace;"
+                style="background: #000; padding: 15px; border-radius: 4px; overflow-x: auto; color: #0f0; font-size: 0.9em; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; border: 1px solid #333;"
+                ref={(el) => {
+                  // Auto-scroll to bottom when new content arrives
+                  if (el && running()) {
+                    setTimeout(() => {
+                      el.scrollTop = el.scrollHeight;
+                    }, 100);
+                  }
+                }}
               >
                 {(() => {
-                  const stdout = masterLogs()?.stdout || '';
+                  const stdout = masterLogs()?.stdout || 'Master.py starting...\n';
                   const lines = stdout.split('\n');
-                  // Show last 20 lines when running
-                  return lines.slice(-20).join('\n');
+                  // Show last 30 lines when running (more context)
+                  return lines.slice(-30).join('\n');
                 })()}
               </pre>
             </div>

@@ -237,8 +237,14 @@ export default function MCSResults() {
       if (logs.status === 'running' || logs.status === 'failed' || (logs.returncode !== null && logs.returncode !== 0)) {
         setShowLogs(true);
         
-        // Log error details for debugging
-        if (logs.status === 'failed' || logs.returncode !== 0) {
+        // Only log actual errors, not informational messages
+        // Check if error message is a real error (not just informational text)
+        const isRealError = logs.error && !logs.error.toLowerCase().includes('note:') && 
+                           !logs.error.toLowerCase().includes('will retry') &&
+                           !logs.error.toLowerCase().includes('this is normal');
+        
+        // Log error details for debugging (only real errors)
+        if ((logs.status === 'failed' || logs.returncode !== 0) && isRealError) {
           console.error(`[MASTER_ERROR] [${new Date().toISOString()}] Master.py error detected:`, {
             status: logs.status,
             returncode: logs.returncode,

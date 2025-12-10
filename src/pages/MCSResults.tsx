@@ -324,14 +324,16 @@ export default function MCSResults() {
       
       // Update run status message based on backend status
       if (status.running) {
-        // Extract step info from logs if available
+        // Extract step info from logs if available - find the LAST (most recent) step marker
         const logs = masterLogs();
         let stepInfo = '';
         if (logs?.stdout) {
-          const stepMatch = logs.stdout.match(/\[(\d+)\/(\d+)\]/);
-          if (stepMatch) {
-            const stepNum = parseInt(stepMatch[1]);
-            const totalSteps = parseInt(stepMatch[2]);
+          // Find all step markers and get the last one (most recent)
+          const stepMatches = [...logs.stdout.matchAll(/\[(\d+)\/(\d+)\]/g)];
+          if (stepMatches.length > 0) {
+            const lastMatch = stepMatches[stepMatches.length - 1];
+            const stepNum = parseInt(lastMatch[1]);
+            const totalSteps = parseInt(lastMatch[2]);
             const stepNames = [
               'Scraping Daily Odds',
               'Scraping Injury Reports',
@@ -789,12 +791,15 @@ export default function MCSResults() {
                 const logs = masterLogs();
                 if (!logs) return null;
                 
-                // Extract current step from stdout
+                // Extract current step from stdout - find the LAST (most recent) step marker
                 const stdout = logs.stdout || '';
-                const stepMatch = stdout.match(/\[(\d+)\/(\d+)\]/);
-                if (stepMatch) {
-                  const stepNum = parseInt(stepMatch[1]);
-                  const totalSteps = parseInt(stepMatch[2]);
+                // Find all step markers and get the last one (most recent)
+                const stepMatches = [...stdout.matchAll(/\[(\d+)\/(\d+)\]/g)];
+                if (stepMatches.length > 0) {
+                  // Get the last match (most recent step)
+                  const lastMatch = stepMatches[stepMatches.length - 1];
+                  const stepNum = parseInt(lastMatch[1]);
+                  const totalSteps = parseInt(lastMatch[2]);
                   const stepNames = [
                     'Scraping Daily Odds',
                     'Scraping Injury Reports',
@@ -862,10 +867,12 @@ export default function MCSResults() {
             if (!logs || !running()) return null;
             
             const stdout = logs.stdout || '';
-            const stepMatch = stdout.match(/\[(\d+)\/(\d+)\]/);
-            if (stepMatch) {
-              const stepNum = parseInt(stepMatch[1]);
-              const totalSteps = parseInt(stepMatch[2]);
+            // Find all step markers and get the last one (most recent)
+            const stepMatches = [...stdout.matchAll(/\[(\d+)\/(\d+)\]/g)];
+            if (stepMatches.length > 0) {
+              const lastMatch = stepMatches[stepMatches.length - 1];
+              const stepNum = parseInt(lastMatch[1]);
+              const totalSteps = parseInt(lastMatch[2]);
               const progress = (stepNum / totalSteps) * 100;
               
               return (

@@ -31,7 +31,9 @@ export default function APIConnectionStatus() {
   const checkAPIStatus = async (api: APIStatus): Promise<APIStatus> => {
     const startTime = performance.now();
     try {
-      const response = await fetch(`${api.url}/health`, {
+      // MCS API uses /api/health, Data API uses /health
+      const healthEndpoint = api.name.includes('MCS') ? '/api/health' : '/health';
+      const response = await fetch(`${api.url}${healthEndpoint}`, {
         method: 'GET',
         mode: 'cors',
         headers: { 'Accept': 'application/json' },

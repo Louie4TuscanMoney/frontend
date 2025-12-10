@@ -358,6 +358,17 @@ export default function MCSResults() {
         setRunStatus(`Master.py completed successfully${status.returncode === 0 ? '' : ` (exit code: ${status.returncode})`}`);
         setRunning(false);
         setError(null);
+        
+        // Reload predictions when Master.py completes successfully
+        if (status.returncode === 0) {
+          console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py completed successfully, reloading predictions...`);
+          // Wait a moment for files to be written, then reload
+          setTimeout(() => {
+            const currentDate = selectedDate() || getTodayDate();
+            console.log(`[RUN_STATUS] [${new Date().toISOString()}] Reloading predictions for ${currentDate}`);
+            loadPredictions(currentDate);
+          }, 2000); // Wait 2 seconds for files to be written
+        }
       } else if (status.status === 'failed') {
         const errorMsg = status.error || `Exit code: ${status.returncode}`;
         setRunStatus(`Master.py failed: ${errorMsg}`);

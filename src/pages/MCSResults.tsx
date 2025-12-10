@@ -23,9 +23,13 @@ export default function MCSResults() {
   const [loadingFullData, setLoadingFullData] = createSignal<Set<string>>(new Set());
   const [gameResults, setGameResults] = createSignal<Map<number, any>>(new Map()); // game_id -> result data
 
-  // Get today's date in YYYY-MM-DD format
+  // Get today's date in YYYY-MM-DD format (using local timezone, not UTC)
   const getTodayDate = () => {
-    return new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Initialize with today's date

@@ -774,7 +774,11 @@ export const mcs1Api = {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Request-ID': requestId,
+          'Accept': 'application/json'
+        },
         mode: 'cors',
         cache: 'no-cache'
       });

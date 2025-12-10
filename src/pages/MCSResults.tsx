@@ -23,12 +23,14 @@ export default function MCSResults() {
   const [loadingFullData, setLoadingFullData] = createSignal<Set<string>>(new Set());
   const [gameResults, setGameResults] = createSignal<Map<number, any>>(new Map()); // game_id -> result data
 
-  // Get today's date in YYYY-MM-DD format (using local timezone, not UTC)
+  // Get today's date in YYYY-MM-DD format (using Pacific time, matching Master.py)
   const getTodayDate = () => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    // Convert to Pacific time (Los Angeles)
+    const pacificTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    const year = pacificTime.getFullYear();
+    const month = String(pacificTime.getMonth() + 1).padStart(2, '0');
+    const day = String(pacificTime.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
 

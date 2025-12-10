@@ -205,9 +205,42 @@ export default function MCSResults() {
       
       setMasterLogs(logs);
       
-      // Show logs if there's an error
-      if (logs.status === 'failed' || logs.returncode !== 0) {
+      // Always show logs if there's an error
+      if (logs.status === 'failed' || (logs.returncode !== null && logs.returncode !== 0)) {
         setShowLogs(true);
+        
+        // Log error details for debugging
+        if (logs.status === 'failed' || logs.returncode !== 0) {
+          console.error(`[MASTER_ERROR] [${new Date().toISOString()}] Master.py error detected:`, {
+            status: logs.status,
+            returncode: logs.returncode,
+            error: logs.error,
+            hasStdout: !!logs.stdout,
+            hasStderr: !!logs.stderr,
+            stdoutLength: logs.stdout?.length || 0,
+            stderrLength: logs.stderr?.length || 0
+          });
+          
+          // Extract and log error location
+          if (logs.stderr) {
+            const errorMatch = logs.stderr.match(/\[(\d+)\/(\d+)\]/);
+            if (errorMatch) {
+              console.error(`[MASTER_ERROR] [${new Date().toISOString()}] Failed at step ${errorMatch[1]}/${errorMatch[2]}`);
+            }
+            
+            // Log last error lines
+            const errorLines = logs.stderr.split('\n').filter(line => 
+              line.includes('Error') || 
+              line.includes('Exception') || 
+              line.includes('Traceback') ||
+              line.includes('Failed') ||
+              line.includes('❌')
+            );
+            if (errorLines.length > 0) {
+              console.error(`[MASTER_ERROR] [${new Date().toISOString()}] Error lines:`, errorLines.slice(-5));
+            }
+          }
+        }
       }
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
@@ -330,10 +363,48 @@ export default function MCSResults() {
                 loadPredictions(today);
               }
             } else {
-              setRunStatus(`Master.py failed: ${status.error || `Exit code: ${status.returncode}`}`);
-              setError(`Master.py execution failed: ${status.error || `Exit code: ${status.returncode}`}`);
+              // Extract detailed error information
+              let errorMessage = `Master.py failed`;
+              if (status.error) {
+                errorMessage += `: ${status.error}`;
+              } else if (status.returncode !== null) {
+                errorMessage += ` (Exit code: ${status.returncode})`;
+              }
+              
+              // Try to extract step information from logs
+              const logs = masterLogs();
+              if (logs?.stderr) {
+                const stepMatch = logs.stderr.match(/\[(\d+)\/(\d+)\]/);
+                if (stepMatch) {
+                  const stepNum = parseInt(stepMatch[1]);
+                  const totalSteps = parseInt(stepMatch[2]);
+                  const stepNames = [
+                    'Scraping Daily Odds',
+                    'Scraping Injury Reports', 
+                    'Scraping Advanced Box Scores',
+                    'Scraping Game Results',
+                    'Training Models',
+                    'Running MCS Predictions',
+                    'Running Extra Simulations',
+                    'Aggregating Results',
+                    'Comparing Predictions'
+                  ];
+                  const stepName = stepNames[stepNum] || `Step ${stepNum}`;
+                  errorMessage += ` - Failed at Step ${stepNum}/${totalSteps}: ${stepName}`;
+                }
+              }
+              
+              setRunStatus(errorMessage);
+              setError(errorMessage);
               setRunning(false);
-              setShowLogs(true); // Show logs on failure
+              setShowLogs(true); // Always show logs on failure
+              
+              console.error(`[MASTER_FAILED] [${new Date().toISOString()}] Master.py failed:`, {
+                status: status.status,
+                returncode: status.returncode,
+                error: status.error,
+                logs: logs
+              });
             }
           }
         } catch (err: any) {
@@ -550,6 +621,106 @@ export default function MCSResults() {
               {masterLogs()?.error}
             </div>
           </Show>
+        </div>
+      </Show>
+
+      {/* Enhanced Error Display for Master.py Failures */}
+      <Show when={masterLogs()?.status === 'failed' || (masterLogs()?.returncode !== null && masterLogs()?.returncode !== 0)}>
+        <div style="margin: 20px 0; padding: 20px; background: #2d1f1f; border: 2px solid #f44336; border-radius: 8px;">
+          <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <span style="font-size: 24px; margin-right: 10px;">❌</span>
+            <h3 style="margin: 0; color: #f44336;">Master.py Execution Failed</h3>
+          </div>
+          
+          <div style="margin-bottom: 15px;">
+            <div style="color: #fff; font-weight: bold; margin-bottom: 5px;">Error Details:</div>
+            <div style="color: #ff9999; font-family: monospace; background: #1a1a1a; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;">
+              {(() => {
+                const logs = masterLogs();
+                if (!logs) return 'No error details available';
+                
+                // Extract error information
+                const errorParts: string[] = [];
+                
+                if (logs.error) {
+                  errorParts.push(`Error: ${logs.error}`);
+                }
+                
+                if (logs.returncode !== null && logs.returncode !== 0) {
+                  errorParts.push(`Exit Code: ${logs.returncode}`);
+                }
+                
+                // Try to extract error location from stderr
+                if (logs.stderr) {
+                  const stderrLines = logs.stderr.split('\n');
+                  
+                  // Look for common error patterns
+                  const errorLine = stderrLines.find(line => 
+                    line.includes('Error') || 
+                    line.includes('Exception') || 
+                    line.includes('Traceback') ||
+                    line.includes('Failed') ||
+                    line.includes('❌')
+                  );
+                  
+                  if (errorLine) {
+                    errorParts.push(`\nError Location:\n${errorLine.trim()}`);
+                  }
+                  
+                  // Look for step information (e.g., "[0/8]", "[1/8]", etc.)
+                  const stepMatch = logs.stderr.match(/\[(\d+)\/(\d+)\]/);
+                  if (stepMatch) {
+                    const stepNum = parseInt(stepMatch[1]);
+                    const totalSteps = parseInt(stepMatch[2]);
+                    const stepNames = [
+                      'Scraping Daily Odds',
+                      'Scraping Injury Reports',
+                      'Scraping Advanced Box Scores',
+                      'Scraping Game Results',
+                      'Training Models',
+                      'Running MCS Predictions',
+                      'Running Extra Simulations',
+                      'Aggregating Results',
+                      'Comparing Predictions'
+                    ];
+                    const stepName = stepNames[stepNum] || `Step ${stepNum}`;
+                    errorParts.push(`\nFailed at: Step ${stepNum}/${totalSteps} - ${stepName}`);
+                  }
+                  
+                  // Get last few lines of stderr for context
+                  const lastErrorLines = stderrLines.slice(-10).join('\n');
+                  if (lastErrorLines.trim()) {
+                    errorParts.push(`\nLast Error Output:\n${lastErrorLines}`);
+                  }
+                }
+                
+                // Also check stdout for error messages
+                if (logs.stdout) {
+                  const stdoutLines = logs.stdout.split('\n');
+                  const errorInStdout = stdoutLines.find(line => 
+                    line.includes('❌') || 
+                    line.includes('Error:') ||
+                    line.includes('Failed')
+                  );
+                  
+                  if (errorInStdout) {
+                    errorParts.push(`\nError in Output:\n${errorInStdout.trim()}`);
+                  }
+                }
+                
+                return errorParts.length > 0 ? errorParts.join('\n') : 'No detailed error information available. Check logs below.';
+              })()}
+            </div>
+          </div>
+          
+          <div style="margin-top: 15px;">
+            <button 
+              onClick={() => setShowLogs(!showLogs())}
+              style="background: #f44336; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;"
+            >
+              {showLogs() ? '▼ Hide' : '▶ Show'} Full Logs
+            </button>
+          </div>
         </div>
       </Show>
 

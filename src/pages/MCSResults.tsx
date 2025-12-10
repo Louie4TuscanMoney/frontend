@@ -991,8 +991,8 @@ export default function MCSResults() {
             </div>
           )}
           
-          {/* Full Logs (Expandable) */}
-          <Show when={showLogs() || !running()}>
+          {/* Full Logs (Auto-expanded when running, expandable when idle) */}
+          <Show when={showLogs() || running()}>
             <div>
               <Show when={masterLogs()?.stdout}>
                 <div style="margin-bottom: 15px;">

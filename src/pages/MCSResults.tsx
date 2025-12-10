@@ -274,10 +274,9 @@ export default function MCSResults() {
         status: status.status,
         returncode: status.returncode,
         error: status.error,
-        start_time: status.start_time,
-        end_time: status.end_time,
         timestamp: status.timestamp || 'N/A',
-        responseTime: `${statusElapsed.toFixed(0)}ms`
+        responseTime: `${statusElapsed.toFixed(0)}ms`,
+        fullResponse: status
       });
       
       console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Frontend State Before Update:`, {

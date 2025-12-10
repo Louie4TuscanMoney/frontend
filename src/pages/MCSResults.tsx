@@ -393,6 +393,10 @@ export default function MCSResults() {
         setError(`Master.py execution failed: ${errorMsg}`);
         setRunning(false);
         setShowLogs(true); // Show logs on failure
+      } else if (status.status === 'killed') {
+        setRunStatus('Previous Master.py run was killed to start a new one');
+        setRunning(false);
+        setError(null); // Clear error since we're starting fresh
       } else if (status.status === 'idle') {
         setRunStatus('');
         setRunning(false);

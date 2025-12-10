@@ -1,5 +1,7 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
-import { data1Api, mcs1Api, DailyMCSFile } from '../api/clients';
+import { data1Api, mcs1Api, DailyMCSFile, DATA_API_URL, MCS_API_URL } from '../api/clients';
+import APIConnectionStatus from '../components/APIConnectionStatus';
+import APILogViewer, { APILogEntry } from '../components/APILogViewer';
 import '../styles/MCSResults.css';
 
 export default function MCSResults() {
@@ -22,6 +24,8 @@ export default function MCSResults() {
   const [fullDataCache, setFullDataCache] = createSignal<Map<string, any>>(new Map());
   const [loadingFullData, setLoadingFullData] = createSignal<Set<string>>(new Set());
   const [gameResults, setGameResults] = createSignal<Map<number, any>>(new Map()); // game_id -> result data
+  const [apiLogs, setApiLogs] = createSignal<APILogEntry[]>([]);
+  const [showAPILogs, setShowAPILogs] = createSignal(true);
 
   // Get today's date in YYYY-MM-DD format (using Pacific time, matching Master.py)
   const getTodayDate = () => {
@@ -88,11 +92,33 @@ export default function MCSResults() {
     };
   });
 
+  // Helper function to log API calls
+  const logAPICall = (method: string, url: string, requestId: string, startTime: number) => {
+    return (response?: Response, error?: Error, responseTime?: number) => {
+      const elapsed = responseTime || (performance.now() - startTime);
+      const logEntry: APILogEntry = {
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        method,
+        url,
+        requestId,
+        responseTime: Math.round(elapsed),
+        status: response?.status,
+        statusText: response?.statusText,
+        error: error?.message
+      };
+      setApiLogs(prev => [logEntry, ...prev].slice(0, 100)); // Keep last 100 logs
+    };
+  };
+
   async function loadPredictions(date: string) {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
     
     console.log(`[MCS_RESULTS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Loading predictions for date: ${date}`);
+    
+    // Declare logCallback outside try block so it's accessible in catch
+    let logCallback: ((response?: Response, error?: Error, responseTime?: number) => void) | undefined;
     
     try {
       setLoading(true);
@@ -104,11 +130,15 @@ export default function MCSResults() {
       });
       
       const apiStartTime = performance.now();
-      const data = await Promise.race([
+      logCallback = logAPICall('GET', `${DATA_API_URL}/api/daily/DailyMCS/${date}`, requestId, apiStartTime);
+      
+      let data: any;
+      data = await Promise.race([
         data1Api.getDailyMCS(date),
         timeoutPromise
       ]) as any;
       const apiElapsed = performance.now() - apiStartTime;
+      logCallback(undefined, undefined, apiElapsed);
       
       console.log(`[MCS_RESULTS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] API call completed in ${apiElapsed.toFixed(0)}ms`);
       
@@ -179,6 +209,11 @@ export default function MCSResults() {
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
       
+      // Log API call error if callback exists
+      if (logCallback) {
+        logCallback(undefined, err, elapsed);
+      }
+      
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== LOAD PREDICTIONS ERROR ==========`);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Date: ${date}`);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
@@ -219,12 +254,14 @@ export default function MCSResults() {
   async function fetchMasterLogs() {
     const requestId = `logs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
+    const logCallback = logAPICall('GET', `${MCS_API_URL}/api/run/logs`, requestId, startTime);
     
     console.log(`[FETCH_LOGS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Fetching Master.py logs`);
     
     try {
       const logs = await mcs1Api.getRunLogs();
       const elapsed = performance.now() - startTime;
+      logCallback(undefined, undefined, elapsed);
       
       console.log(`[FETCH_LOGS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Logs fetched in ${elapsed.toFixed(0)}ms:`, {
         status: logs.status,
@@ -280,6 +317,7 @@ export default function MCSResults() {
       }
     } catch (err: any) {
       const elapsed = performance.now() - startTime;
+      logCallback(undefined, err, elapsed);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] ========== FETCH LOGS ERROR ==========`);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Type: ${err.name || 'Unknown'}`);
       console.error(`[ERROR] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Error Message: ${err.message || 'No message'}`);
@@ -293,6 +331,7 @@ export default function MCSResults() {
   async function checkRunStatus() {
     const requestId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
+    const logCallback = logAPICall('GET', `${MCS_API_URL}/api/run/status`, requestId, startTime);
     
     console.log(`[RUN_STATUS] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Checking Master.py run status`);
     
@@ -300,6 +339,7 @@ export default function MCSResults() {
       const statusStart = performance.now();
       const status = await mcs1Api.getRunStatus();
       const statusElapsed = performance.now() - statusStart;
+      logCallback(undefined, undefined, statusElapsed);
       
       const wasRunning = running();
       const wasStatus = masterLogs()?.status || 'idle';
@@ -449,6 +489,7 @@ export default function MCSResults() {
   async function handleTriggerMasterPy() {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = performance.now();
+    const logCallback = logAPICall('POST', `${MCS_API_URL}/api/run`, requestId, startTime);
     
     console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Triggering Master.py`);
     
@@ -459,6 +500,7 @@ export default function MCSResults() {
       const apiStartTime = performance.now();
       const result = await mcs1Api.triggerMasterPy();
       const apiElapsed = performance.now() - apiStartTime;
+      logCallback(undefined, undefined, apiElapsed);
       
       console.log(`[MASTER_TRIGGER] [${new Date().toISOString()}] [REQUEST_ID:${requestId}] Master.py triggered in ${apiElapsed.toFixed(0)}ms`, result);
       
@@ -652,6 +694,35 @@ export default function MCSResults() {
 
   return (
     <div class="mcs-results">
+      {/* API Connection Status */}
+      <div style="margin-bottom: 20px;">
+        <APIConnectionStatus />
+      </div>
+      
+      {/* API Logs Viewer - Collapsible */}
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2 style="margin: 0; color: #333; font-size: 1.3em;">📡 API Communication</h2>
+          <button
+            onClick={() => setShowAPILogs(!showAPILogs())}
+            style="
+              background: #4caf50;
+              color: #fff;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 0.9em;
+            "
+          >
+            {showAPILogs() ? '▼ Hide' : '▶ Show'} API Logs
+          </button>
+        </div>
+        <Show when={showAPILogs()}>
+          <APILogViewer logs={apiLogs()} maxLogs={50} />
+        </Show>
+      </div>
+      
       <div class="mcs-header">
         <h1>📊 MCS Predictions</h1>
         <div class="header-controls">

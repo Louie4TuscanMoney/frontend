@@ -19,7 +19,9 @@ export default function App() {
             </A>
             <div class="nav-links">
               <A href="/" class="nav-link" activeClass="active">Games</A>
-              <A href="/mcs" class="nav-link" activeClass="active">MCS Predictions</A>
+              <A href="/mcs" class="nav-link mcs-link" activeClass="active">
+                📊 MCS Predictions
+              </A>
               <A href="/bet" class="nav-link" activeClass="active">Place Bet</A>
               <A href="/portfolio" class="nav-link" activeClass="active">Portfolio</A>
             </div>
